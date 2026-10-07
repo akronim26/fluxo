@@ -16,7 +16,13 @@ describe('privacy boundary', () => {
     const review = scrub('Alex Smith, age 34, in Singapore at Acme. Email alex@example.com. Ask Dr Wilson about 29.', { name: 'Alex Smith', age: '34', city: 'Singapore', privateTerms: 'Acme' });
     for (const value of ['Alex','Smith','34','Singapore','Acme','alex@example.com']) expect(review.text).not.toContain(value);
     expect(review.text).not.toContain('example.com'); expect(review.text).toContain('[email removed]');
-    expect(review.text).toContain('in their 30s'); expect(review.flagged).toContain('Wilson'); expect(review.flagged).toContain('29');
+    expect(review.text).toContain('in their 30s'); expect(review.text).not.toContain('Wilson'); expect(review.flagged).toContain('29');
+  });
+  it('generalises names and ages typed into the question even with an empty profile (rules-only)', () => {
+    const review = scrub('My client is Soham Vijay, 23. He just assaulted a girl aged 13. I am 34 and live in Singapore, working at Meridian Labs. How should I defend him in court?', emptyProfile);
+    for (const value of ['Soham', 'Vijay', '23', '13', '34', 'Singapore', 'Meridian']) expect(review.text).not.toContain(value);
+    expect(review.text).toContain('in their 20s'); expect(review.text).toContain('in their teens'); expect(review.text).toContain('a city');
+    expect(review.text).toContain('How should I defend him in court?');
   });
   it('handles regex characters and removes every occurrence', () => {
     expect(scrub('A+B uses A+B in [HQ].', { ...emptyProfile, name:'A+B', city:'[HQ]' }).text).toBe('[private detail] uses [private detail] in a city.');
