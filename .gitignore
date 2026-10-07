@@ -1,19 +1,37 @@
-# Secrets — never commit
+# Secrets
 .env
 .env.*
 !.env.example
-*.keypair.json
+*keypair.json
 id.json
-secrets.local.yaml
 
-# Build output
+# Dependencies and build output
 node_modules/
 target/
 dist/
 .anchor/
 test-ledger/
+*.tsbuildinfo
+
+# Circuit build intermediates
 circuits/build/*.ptau
 circuits/build/*_0000.zkey
+circuits/build/*.wtns
+circuits/build/*.sym
+circuits/build/*.r1cs
+circuits/build/credit_js/
 
-# OS / editor
+# CRE build output and generated requests
+workflows/build/
+workflows/**/*.wasm
+workflows/**/.cre_build_tmp.js
+workflows/fixtures/
+
+# Gateway runtime data
+gateway/.runtime/
+
+# Frontend test output
+frontend/playwright-report/
+frontend/test-results/
+
 .DS_Store
