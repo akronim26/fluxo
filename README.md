@@ -80,35 +80,36 @@ Full addresses are in [`deploy/devnet.json`](deploy/devnet.json). The IDL is in 
 ### Installation
 
 ```bash
-# Clone the repository
 git clone https://github.com/akronim26/fluxo.git
 cd fluxo
 
-# Install dependencies and build the workflows
-cd workflows && bun install && ./scripts/build-wasm.sh
+cd workflows && bun install
 cd ../gateway && bun install
 cd ../frontend && npm install
+cd ../scripts && npm install
+cd ../programs && npm install
 cd ../circuits && npm ci --ignore-scripts
 ```
 
 ### Environment Variables
 
-Each folder has a `.env.example`. Copy it to `.env` and fill it in. Nothing secret is committed.
+Copy each `.env.example` to `.env` in the same folder and fill it in. Nothing secret is committed.
 
-**`workflows/.env`**
-- `CRE_SOLANA_PRIVATE_KEY`: path to a funded devnet keypair (pays simulation broadcast fees)
-- `CRE_ETH_PRIVATE_KEY`: the placeholder from `.env.example` (required by the CLI)
-- `SECRET_MODEL_API_KEY`: OpenRouter key
-- `SECRET_ENCLAVE_BOX_SK`: written by `bun run scripts/gen-enclave-key.ts`
-- `SOLANA_DEVNET_RPC_URL`: a private devnet RPC (the public endpoint returns 429 under normal load)
+- `workflows/.env`: a funded devnet keypair for simulation fees, your OpenRouter key and a private devnet RPC. The gateway's faucet and relayer read the RPC from here too.
+- `gateway/.env`: keypair paths for the faucet (pays the 0.02 SOL), the tUSDC mint authority and the `stage_spend` relayer.
+- `scripts/.env`: the admin and faucet keypairs used to set up the pool.
+- `frontend/.env`: optional; the defaults work with the local gateway.
 
-**`gateway/.env`**: keypair paths for the faucet mint authority and the `stage_spend` relayer.
+Then, from `workflows/`, create the enclave key and build the workflows:
 
-**`scripts/.env`**: admin and faucet keypair paths for deployment.
+```bash
+bun run scripts/gen-enclave-key.ts   # appends SECRET_ENCLAVE_BOX_SK to .env, prints the public key
+./scripts/build-wasm.sh              # compiles fluxo-request and fluxo-settle
+```
 
 ### Running the App
 
-Run each in its own terminal, from the repo root:
+Log in to CRE first (`cre login`), since the gateway runs the workflow through `cre workflow simulate`. Then run each in its own terminal, from the repo root:
 
 ```bash
 # Gateway: public API on :8788, private mailbox on :8787
