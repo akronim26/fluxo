@@ -2,7 +2,7 @@
   "cluster": "devnet",
   "rpcUrl": "https://api.devnet.solana.com",
   "programId": "HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC",
-  "idl": "deploy/idl/brizo_pool.json",
+  "idl": "deploy/idl/fluxo_pool.json",
   "pool": "E4VujnAbw8qugcpogcSCaXVHC2r8qoAzeoAoDrnomNPT",
   "tree": "J4uUU49Dngp4XnmTTdHRiui9ZgKFc9LyuYaB9mCgJ2Ly",
   "leaves": "EfSCPTpcDVGUNqQdD2dBZAp6q4NjDNueRc8yAqPCBtGm",

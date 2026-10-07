@@ -1,10 +1,10 @@
 {
   "address": "HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC",
   "metadata": {
-    "name": "brizo_pool",
+    "name": "fluxo_pool",
     "version": "0.1.0",
     "spec": "0.1.0",
-    "description": "Brizo credit pool: CRE keystone receiver with on-chain Groth16 spends"
+    "description": "Fluxo credit pool: CRE keystone receiver with on-chain Groth16 spends"
   },
   "instructions": [
     {
@@ -144,7 +144,7 @@
     {
       "name": "on_report",
       "docs": [
-        "Called by the keystone forwarder's CPI with a Borsh `BrizoReport`.",
+        "Called by the keystone forwarder's CPI with a Borsh `FluxoReport`.",
         "remaining_accounts: Spend `[pending (w), nullifiers (w), relayer (w)]`;",
         "Settle `[vault (w), operator (w), token_program]`."
       ],
