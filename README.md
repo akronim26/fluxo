@@ -53,6 +53,8 @@ A normal AI request exposes you in three places: the text you write, the payment
 
 ![Fluxo architecture](docs/images/architecture.png)
 
+For how every part works and fits together, read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
 ## Contract Addresses (Solana Devnet)
 
 - **Program `fluxo_pool`**: [`HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC`](https://explorer.solana.com/address/HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC?cluster=devnet)
