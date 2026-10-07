@@ -15,7 +15,6 @@ export function proofToSolanaCompressed(proof, signals) {
       const low = BigInt(`0x${y.slice(64)}`);
       negative = low > (BASE_FIELD - low) % BASE_FIELD;
     }
-    // Arkworks SWFlags: bit 7 means y > -y; Fq2 compares imaginary then real.
     if (negative) x[0] |= 0x80;
     return x.toString('hex');
   };
@@ -50,7 +49,6 @@ function g1(point) {
 }
 function g2(point) {
   if (!Array.isArray(point) || point.length !== 3 || point.some(x => !Array.isArray(x) || x.length !== 2) || point[2][0] !== '1' || point[2][1] !== '0') throw new Error('Invalid G2 shape');
-  // Solana Fq2 order is imaginary, real for each of x and y.
   return [point[0][1], point[0][0], point[1][1], point[1][0]].map(baseHex).join('');
 }
 export function proofToSolana(proof, signals) {
@@ -67,5 +65,5 @@ export function proofToSolana(proof, signals) {
 export function verifyingKeyRust(vk) {
   if (vk.protocol !== 'groth16' || vk.curve !== 'bn128' || vk.nPublic !== 3 || vk.IC.length !== 4) throw new Error('Expected three-public-input verifying key');
   const array = hex => `[${Array.from(Buffer.from(hex, 'hex')).join(', ')}]`;
-  return `// Generated for groth16-solana =0.2.0; input order root, nullifierHash, requestBinding.\nuse groth16_solana::groth16::Groth16Verifyingkey;\n\npub const VERIFYINGKEY: Groth16Verifyingkey = Groth16Verifyingkey {\n    nr_pubinputs: ${vk.IC.length},\n    vk_alpha_g1: ${array(g1(vk.vk_alpha_1))},\n    vk_beta_g2: ${array(g2(vk.vk_beta_2))},\n    vk_gamme_g2: ${array(g2(vk.vk_gamma_2))},\n    vk_delta_g2: ${array(g2(vk.vk_delta_2))},\n    vk_ic: &[${vk.IC.map(point => array(g1(point))).join(',\n        ')}],\n};\n`;
+  return `use groth16_solana::groth16::Groth16Verifyingkey;\n\npub const VERIFYINGKEY: Groth16Verifyingkey = Groth16Verifyingkey {\n    nr_pubinputs: ${vk.IC.length},\n    vk_alpha_g1: ${array(g1(vk.vk_alpha_1))},\n    vk_beta_g2: ${array(g2(vk.vk_beta_2))},\n    vk_gamme_g2: ${array(g2(vk.vk_gamma_2))},\n    vk_delta_g2: ${array(g2(vk.vk_delta_2))},\n    vk_ic: &[${vk.IC.map(point => array(g1(point))).join(',\n        ')}],\n};\n`;
 }

@@ -10,7 +10,6 @@ const hash = (a, b) => poseidon.F.toObject(poseidon([a, b]));
 const r = poseidon.F.p;
 
 async function fixture(index = 0n) {
-  // Synthetic test values, never a funded credit note.
   let current = hash(123n, 456n);
   let zero = 0n;
   const pathElements = [];

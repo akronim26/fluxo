@@ -45,7 +45,6 @@ template Credit(depth) {
     nullifier.inputs[1] <== i;
     nullifier.out === nullifierHash;
 
-    // Constrain the external binding without publishing a fourth public signal.
     signal bindingSquare;
     bindingSquare <== requestBinding * requestBinding;
 }

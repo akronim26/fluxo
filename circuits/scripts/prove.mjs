@@ -7,7 +7,6 @@ import { proofToSolana, proofToSolanaCompressed, requestBinding, verifyingKeyRus
 const poseidon = await buildPoseidon();
 const hash = (a, b) => poseidon.F.toObject(poseidon([a, b]));
 const requestId = '000102030405060708090a0b0c0d0e0f';
-// Public synthetic fixture only: not an actual box envelope or funded note.
 const ciphertext = 'aGVsbG8=';
 const commitment = hash(123n, 456n);
 let root = commitment, zero = 0n;

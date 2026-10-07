@@ -1,4 +1,3 @@
-// Generated for groth16-solana =0.2.0; input order root, nullifierHash, requestBinding.
 use groth16_solana::groth16::Groth16Verifyingkey;
 
 pub const VERIFYINGKEY: Groth16Verifyingkey = Groth16Verifyingkey {

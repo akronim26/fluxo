@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
-const directory = mkdtempSync(join(tmpdir(), 'brizo-s7-spec-'));
+const directory = mkdtempSync(join(tmpdir(), 'fluxo-s7-spec-'));
 const original = readFileSync(fileURLToPath(new URL('./spec-probe.circom', import.meta.url)), 'utf8');
 const r = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 function run(command, args, success = true) {

@@ -1,5 +1,5 @@
 [package]
-name = "brizo-credit-host-check"
+name = "fluxo-credit-host-check"
 version = "0.1.0"
 edition = "2021"
 publish = false

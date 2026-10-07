@@ -1,5 +1,5 @@
 {
-  "name": "@brizo/circuits",
+  "name": "@fluxo/circuits",
   "private": true,
   "type": "module",
   "scripts": {
