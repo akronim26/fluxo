@@ -191,5 +191,5 @@ More detail in [`gateway/README.md`](gateway/README.md), [`frontend/README.md`](
 
 ## Development Team
 
-- [@0xr10t](https://github.com/0xr10t)
-- [@akronim26](https://github.com/akronim26)
+- [Soham](https://github.com/0xr10t)
+- [Abhivansh](https://github.com/akronim26)
