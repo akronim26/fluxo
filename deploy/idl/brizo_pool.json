@@ -1,0 +1,849 @@
+{
+  "address": "HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC",
+  "metadata": {
+    "name": "brizo_pool",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Brizo credit pool: CRE keystone receiver with on-chain Groth16 spends"
+  },
+  "instructions": [
+    {
+      "name": "deposit",
+      "docs": [
+        "Moves exactly `deposit_amount` into the vault and inserts `commitment` as a leaf."
+      ],
+      "discriminator": [
+        242,
+        35,
+        198,
+        137,
+        82,
+        225,
+        242,
+        182
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "tree",
+          "writable": true
+        },
+        {
+          "name": "leaves",
+          "writable": true
+        },
+        {
+          "name": "user_token",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "initialize",
+      "docs": [
+        "Creates `Pool` and `Tree`, zero-initialises the client-allocated `Leaves` and",
+        "`NullifierSet` accounts, and records the forwarder allowed to call `on_report`.",
+        "`vault` must be a tUSDC token account owned by the pool PDA; `operator` a tUSDC",
+        "token account that receives settlements."
+      ],
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "tree",
+          "writable": true
+        },
+        {
+          "name": "leaves",
+          "docs": [
+            "Allocated by the client (SystemProgram.createAccount, owner = this program)."
+          ],
+          "writable": true
+        },
+        {
+          "name": "nullifiers",
+          "docs": [
+            "Allocated by the client (SystemProgram.createAccount, owner = this program)."
+          ],
+          "writable": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "vault"
+        },
+        {
+          "name": "operator"
+        },
+        {
+          "name": "system_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "forwarder_program",
+          "type": "pubkey"
+        },
+        {
+          "name": "deposit_amount",
+          "type": "u64"
+        },
+        {
+          "name": "credits_per_deposit",
+          "type": "u64"
+        },
+        {
+          "name": "credit_price",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "on_report",
+      "docs": [
+        "Called by the keystone forwarder's CPI with a Borsh `BrizoReport`.",
+        "remaining_accounts: Spend `[pending (w), nullifiers (w), relayer (w)]`;",
+        "Settle `[vault (w), operator (w), token_program]`."
+      ],
+      "discriminator": [
+        214,
+        173,
+        18,
+        221,
+        173,
+        148,
+        151,
+        208
+      ],
+      "accounts": [
+        {
+          "name": "state"
+        },
+        {
+          "name": "forwarder_authority",
+          "docs": [
+            "PDA signer supplied by the forwarder CPI; verified in `verify_forwarder_cpi`."
+          ],
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "_metadata",
+          "type": "bytes"
+        },
+        {
+          "name": "report",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "stage_spend",
+      "docs": [
+        "Phase 1 of a spend. Anyone may stage (normally the gateway relayer, which pays",
+        "rent for the pending account and gets it back at finalize); only a valid proof",
+        "for an unspent nullifier against a recent root gets through."
+      ],
+      "discriminator": [
+        148,
+        30,
+        136,
+        14,
+        117,
+        213,
+        138,
+        36
+      ],
+      "accounts": [
+        {
+          "name": "relayer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool"
+        },
+        {
+          "name": "tree"
+        },
+        {
+          "name": "nullifiers"
+        },
+        {
+          "name": "pending",
+          "writable": true
+        },
+        {
+          "name": "system_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "root",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "nullifier_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "request_binding",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "proof_a",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "proof_b",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
+        },
+        {
+          "name": "proof_c",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Leaves",
+      "discriminator": [
+        77,
+        59,
+        28,
+        139,
+        97,
+        159,
+        50,
+        12
+      ]
+    },
+    {
+      "name": "NullifierSet",
+      "discriminator": [
+        251,
+        219,
+        17,
+        100,
+        208,
+        102,
+        127,
+        25
+      ]
+    },
+    {
+      "name": "PendingSpend",
+      "discriminator": [
+        193,
+        205,
+        85,
+        66,
+        25,
+        3,
+        67,
+        134
+      ]
+    },
+    {
+      "name": "Pool",
+      "discriminator": [
+        241,
+        154,
+        109,
+        4,
+        17,
+        177,
+        109,
+        188
+      ]
+    },
+    {
+      "name": "Tree",
+      "discriminator": [
+        100,
+        9,
+        213,
+        154,
+        6,
+        136,
+        109,
+        55
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "Deposited",
+      "discriminator": [
+        111,
+        141,
+        26,
+        45,
+        161,
+        35,
+        100,
+        57
+      ]
+    },
+    {
+      "name": "Settled",
+      "discriminator": [
+        232,
+        210,
+        40,
+        17,
+        142,
+        124,
+        145,
+        238
+      ]
+    },
+    {
+      "name": "Spent",
+      "discriminator": [
+        43,
+        51,
+        164,
+        100,
+        191,
+        244,
+        174,
+        98
+      ]
+    },
+    {
+      "name": "Staged",
+      "discriminator": [
+        119,
+        203,
+        220,
+        73,
+        234,
+        89,
+        57,
+        188
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidForwarderProgram",
+      "msg": "forwarder_program must be a non-default pubkey"
+    },
+    {
+      "code": 6001,
+      "name": "MismatchedForwarderProgram",
+      "msg": "Forwarder state owner does not match the pool's forwarder_program"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidForwarderAuthority",
+      "msg": "forwarder_authority is not the PDA for this state, receiver and forwarder"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidReport",
+      "msg": "Report payload or its accounts are malformed"
+    },
+    {
+      "code": 6004,
+      "name": "UnknownRoot",
+      "msg": "Root is not in the recent root history"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidProof",
+      "msg": "Groth16 proof did not verify"
+    },
+    {
+      "code": 6006,
+      "name": "NullifierUsed",
+      "msg": "Nullifier already spent"
+    },
+    {
+      "code": 6007,
+      "name": "NullifierSetFull",
+      "msg": "Nullifier set is full"
+    },
+    {
+      "code": 6008,
+      "name": "TreeFull",
+      "msg": "Merkle tree is full"
+    },
+    {
+      "code": 6009,
+      "name": "OverSpent",
+      "msg": "Spends would exceed deposited credits"
+    },
+    {
+      "code": 6010,
+      "name": "InsufficientVault",
+      "msg": "Vault balance does not cover the settlement"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidConfig",
+      "msg": "credit_price * credits_per_deposit must equal deposit_amount"
+    },
+    {
+      "code": 6012,
+      "name": "InvalidCommitment",
+      "msg": "Commitment must be a BN254 field element"
+    },
+    {
+      "code": 6013,
+      "name": "InvalidTokenAccount",
+      "msg": "Token account has the wrong program, mint or owner"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidTokenProgram",
+      "msg": "Not the SPL Token program"
+    },
+    {
+      "code": 6015,
+      "name": "PoseidonFailed",
+      "msg": "Poseidon syscall failed"
+    },
+    {
+      "code": 6016,
+      "name": "NotStaged",
+      "msg": "No staged spend for this nullifier; call stage_spend first"
+    },
+    {
+      "code": 6017,
+      "name": "BindingMismatch",
+      "msg": "request_binding differs from the staged spend's"
+    }
+  ],
+  "types": [
+    {
+      "name": "Deposited",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "leaf_index",
+            "type": "u32"
+          },
+          {
+            "name": "commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Leaves",
+      "docs": [
+        "Every commitment in insertion order, so clients rebuild the tree without an indexer."
+      ],
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "count",
+            "type": "u32"
+          },
+          {
+            "name": "_pad",
+            "type": "u32"
+          },
+          {
+            "name": "leaves",
+            "type": {
+              "array": [
+                {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                1024
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "NullifierSet",
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "count",
+            "type": "u32"
+          },
+          {
+            "name": "_pad",
+            "type": "u32"
+          },
+          {
+            "name": "slots",
+            "type": {
+              "array": [
+                {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                4096
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "PendingSpend",
+      "docs": [
+        "A spend whose proof verified in `stage_spend`, waiting for the CRE report."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "nullifier_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "request_binding",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "relayer",
+            "type": "pubkey"
+          },
+          {
+            "name": "staged_slot",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Pool",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "operator",
+            "type": "pubkey"
+          },
+          {
+            "name": "forwarder_program",
+            "type": "pubkey"
+          },
+          {
+            "name": "tree",
+            "type": "pubkey"
+          },
+          {
+            "name": "leaves",
+            "type": "pubkey"
+          },
+          {
+            "name": "nullifiers",
+            "type": "pubkey"
+          },
+          {
+            "name": "deposit_amount",
+            "type": "u64"
+          },
+          {
+            "name": "credits_per_deposit",
+            "type": "u64"
+          },
+          {
+            "name": "credit_price",
+            "type": "u64"
+          },
+          {
+            "name": "deposits",
+            "type": "u64"
+          },
+          {
+            "name": "spends",
+            "type": "u64"
+          },
+          {
+            "name": "claimed_spends",
+            "type": "u64"
+          },
+          {
+            "name": "redeemed",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Settled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "type": "u64"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Spent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "nullifier_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "request_binding",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Staged",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "nullifier_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "request_binding",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Tree",
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "next_index",
+            "type": "u32"
+          },
+          {
+            "name": "current_root_index",
+            "type": "u32"
+          },
+          {
+            "name": "filled_subtrees",
+            "type": {
+              "array": [
+                {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                10
+              ]
+            }
+          },
+          {
+            "name": "zeros",
+            "type": {
+              "array": [
+                {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                10
+              ]
+            }
+          },
+          {
+            "name": "roots",
+            "type": {
+              "array": [
+                {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                32
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
