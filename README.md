@@ -55,13 +55,13 @@ A normal AI request exposes you in three places: the text you write, the payment
 
 ## Contract Addresses (Solana Devnet)
 
-- **Program `brizo_pool`**: [`HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC`](https://explorer.solana.com/address/HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC?cluster=devnet)
+- **Program `fluxo_pool`**: [`HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC`](https://explorer.solana.com/address/HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC?cluster=devnet)
 - **Pool PDA** (CRE simulator forwarder): `E4VujnAbw8qugcpogcSCaXVHC2r8qoAzeoAoDrnomNPT`
 - **tUSDC Mint** (test token, 6 decimals): `7NfRf2AgUw3yRMSuj9EXsEJNC5nSr8RmqtrXKxv6hVFJ`
 - **Tree PDA / Leaves / NullifierSet**: `J4uUU49D…` / `EfSCPTpc…` / `EMqup2tD…`
 - **Vault / Operator token accounts**: `62hvjRCm…` / `Edk22EeX…`
 
-Full addresses are in [`deploy/devnet.json`](deploy/devnet.json). The IDL is in [`deploy/idl/brizo_pool.json`](deploy/idl/brizo_pool.json).
+Full addresses are in [`deploy/devnet.json`](deploy/devnet.json). The IDL is in [`deploy/idl/fluxo_pool.json`](deploy/idl/fluxo_pool.json).
 
 ## Quick Start
 
@@ -120,18 +120,18 @@ Run from `workflows/`:
 
 ```bash
 # One paid question: TEE answer + Solana spend finalize (after the relayer's stage_spend)
-cre workflow simulate ./brizo-request --target simulation-settings --non-interactive --trigger-index 0 \
-  --http-payload ./fixtures/requests/<id>/request.json --broadcast --wasm "$PWD/build/brizo-request.wasm"
+cre workflow simulate ./fluxo-request --target simulation-settings --non-interactive --trigger-index 0 \
+  --http-payload ./fixtures/requests/<id>/request.json --broadcast --wasm "$PWD/build/fluxo-request.wasm"
 
 # Two-step path: spend finalize, then confidential answer
-cre workflow simulate ./brizo-spend --target simulation-settings --non-interactive --trigger-index 0 \
-  --http-payload ./fixtures/requests/<id>/spend.json --broadcast --wasm "$PWD/build/brizo-spend.wasm"
-cre workflow simulate ./brizo-infer --target simulation-settings --non-interactive --trigger-index 0 \
-  --http-payload ./fixtures/requests/<id>/infer.json --wasm "$PWD/build/brizo-infer.wasm"
+cre workflow simulate ./fluxo-spend --target simulation-settings --non-interactive --trigger-index 0 \
+  --http-payload ./fixtures/requests/<id>/spend.json --broadcast --wasm "$PWD/build/fluxo-spend.wasm"
+cre workflow simulate ./fluxo-infer --target simulation-settings --non-interactive --trigger-index 0 \
+  --http-payload ./fixtures/requests/<id>/infer.json --wasm "$PWD/build/fluxo-infer.wasm"
 
 # Settle: pay the operator for finalized spends
-cre workflow simulate ./brizo-settle --target simulation-settings --non-interactive --trigger-index 0 \
-  --broadcast --wasm "$PWD/build/brizo-settle.wasm"
+cre workflow simulate ./fluxo-settle --target simulation-settings --non-interactive --trigger-index 0 \
+  --broadcast --wasm "$PWD/build/fluxo-settle.wasm"
 
 # Keep settling on the cron cadence (stands in for the DON scheduler)
 ./scripts/settle-loop.sh
@@ -153,14 +153,14 @@ Run from `programs/`:
 
 ```bash
 NO_DNA=1 anchor build --no-idl
-cd programs/brizo_pool && RUSTUP_TOOLCHAIN=nightly-2025-04-15 NO_DNA=1 \
-  anchor idl build -o ../../target/idl/brizo_pool.json -t ../../target/types/brizo_pool.ts && cd ../..
+cd programs/fluxo_pool && RUSTUP_TOOLCHAIN=nightly-2025-04-15 NO_DNA=1 \
+  anchor idl build -o ../../target/idl/fluxo_pool.json -t ../../target/types/fluxo_pool.ts && cd ../..
 
 # 17 localnet tests, including on-chain Groth16 and the forwarder CPI
 NO_DNA=1 anchor test --skip-build
 
 # Deploy and initialise (mint, vault, large accounts, pool → deploy/devnet.json)
-NO_DNA=1 anchor deploy --provider.cluster devnet -p brizo_pool
+NO_DNA=1 anchor deploy --provider.cluster devnet -p fluxo_pool
 cd ../scripts && node --env-file=.env --import tsx init-devnet.ts
 ```
 
