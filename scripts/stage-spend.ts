@@ -1,14 +1,4 @@
-// Phase 1 of a spend (HANDOFF-A D6), as the gateway relayer sends it: brizo_pool.stage_spend
-// verifies the Groth16 credit proof on-chain with this tx's own compute budget and records
-// PendingSpend ["pending", pool, nullifierHash]. Phase 2 is the CRE brizo-spend workflow.
-//
-// Usage: cd scripts && node --env-file=.env --import tsx stage-spend.ts <stage.json>
-// stage.json = { root, nullifierHash, requestBinding, proofA, proofB, proofC } (hex; proof
-// points compressed, A already negated) — e.g. workflows/fixtures/requests/<id>/stage.json.
-// RELAYER_KEYPAIR (default ADMIN_KEYPAIR) pays the pending account's rent and gets it back
-// at finalize.
 import anchor, { type Idl } from "@coral-xyz/anchor";
-// Default import: Node's ESM loader can't see every named export of this CommonJS package.
 const { AnchorProvider, Program, Wallet } = anchor;
 import { ComputeBudgetProgram, Connection, Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import { readFileSync } from "node:fs";

@@ -1,10 +1,4 @@
-// One-shot devnet setup for brizo_pool (run after `anchor deploy`):
-//   tUSDC mint (6 decimals, faucet authority) -> vault + operator token accounts ->
-//   allocate Leaves / NullifierSet -> initialize against the CRE forwarder -> deploy/devnet.json
-// Usage: cd scripts && npm i && node --env-file=.env --import tsx init-devnet.ts
-// Never prints secret keys; keypair files are read only to sign.
 import anchor, { type Idl } from "@coral-xyz/anchor";
-// Default import: Node's ESM loader can't see every named export of this CommonJS package.
 const { AnchorProvider, BN, Program, Wallet } = anchor;
 import { createMint, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
 import { Connection, Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
@@ -20,9 +14,9 @@ const root = resolve(import.meta.dirname, "..");
 const out = resolve(root, "deploy/devnet.json");
 if (existsSync(out)) throw new Error(`${out} exists; the pool is already initialised`);
 
-const DEPOSIT = 10_000_000; // 10 tUSDC
+const DEPOSIT = 10_000_000;
 const CREDITS = 200;
-const PRICE = 50_000; // 0.05 tUSDC
+const PRICE = 50_000;
 
 const loadKeypair = (p: string) => Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync(p, "utf8"))));
 const faucetPath = env("FAUCET_KEYPAIR");
@@ -37,7 +31,7 @@ const rpcUrl = env("RPC_URL", "https://api.devnet.solana.com");
 const forwarderProgram = new PublicKey(env("FORWARDER_PROGRAM", "7kuEAA3mSC1Tz8gQjnvH7bKFda9xSPRRin9SZbH49cNK"));
 const forwarderState = new PublicKey(env("FORWARDER_STATE", "5Tipz3yhTBdVsDbaBxZkrp7Gjf3brGq5SKkxReefPMP7"));
 
-const idlSrc = resolve(root, "programs/target/idl/brizo_pool.json");
+const idlSrc = resolve(root, "programs/target/idl/fluxo_pool.json");
 const idl = JSON.parse(readFileSync(idlSrc, "utf8")) as Idl & { address: string };
 const conn = new Connection(rpcUrl, "confirmed");
 const provider = new AnchorProvider(conn, new Wallet(admin), { commitment: "confirmed" });
@@ -86,13 +80,13 @@ const initTx = await program.methods
   .rpc();
 
 mkdirSync(resolve(root, "deploy/idl"), { recursive: true });
-copyFileSync(idlSrc, resolve(root, "deploy/idl/brizo_pool.json"));
+copyFileSync(idlSrc, resolve(root, "deploy/idl/fluxo_pool.json"));
 
 const devnet = {
   cluster: "devnet",
   rpcUrl,
   programId: programId.toBase58(),
-  idl: "deploy/idl/brizo_pool.json",
+  idl: "deploy/idl/fluxo_pool.json",
   pool: pool.toBase58(),
   tree: tree.toBase58(),
   leaves: leaves.publicKey.toBase58(),

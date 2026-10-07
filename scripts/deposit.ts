@@ -1,9 +1,4 @@
-// Devnet deposit from the admin wallet: mints 10 tUSDC with the faucet authority, then
-// deposit(commitment). Default commitment = lane C's vector (Poseidon(123, 456)), whose
-// one-leaf root is the root in circuits/build/sample-spend-compressed.json.
-// Usage: cd scripts && node --env-file=.env --import tsx deposit.ts [commitment-decimal]
 import anchor, { type Idl } from "@coral-xyz/anchor";
-// Default import: Node's ESM loader can't see every named export of this CommonJS package.
 const { AnchorProvider, Program, Wallet } = anchor;
 import { getOrCreateAssociatedTokenAccount, mintTo } from "@solana/spl-token";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
@@ -15,7 +10,7 @@ const home = (p: string) => p.replace(/^~/, process.env.HOME!);
 const loadKeypair = (p: string) => Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync(home(p), "utf8"))));
 const d = JSON.parse(readFileSync(resolve(root, "deploy/devnet.json"), "utf8"));
 const admin = loadKeypair(process.env.ADMIN_KEYPAIR ?? "~/.config/solana/id.json");
-const faucet = loadKeypair(process.env.FAUCET_KEYPAIR ?? "~/.config/brizo/faucet-authority.json");
+const faucet = loadKeypair(process.env.FAUCET_KEYPAIR ?? "~/.config/fluxo/faucet-authority.json");
 const commitment = BigInt(
   process.argv[2] ?? JSON.parse(readFileSync(resolve(root, "circuits/build/poseidon-vectors.json"), "utf8")).commitment
 );
