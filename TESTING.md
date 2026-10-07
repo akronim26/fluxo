@@ -69,8 +69,8 @@ Terminal B:
 node --env-file=.env --import tsx scripts/make-request.ts --i <unused index> --relayer <relayer pubkey>
 
 # Phase 1: stage_spend (Groth16 verified on-chain)
-cd ../scripts && RELAYER_KEYPAIR=<path> node --env-file=.env --import tsx stage-spend.ts \
-  ../workflows/fixtures/requests/<id>/stage.json && cd ../workflows
+cd .. && RELAYER_KEYPAIR=<path> node --env-file-if-exists=workflows/.env gateway/scripts/stage-spend.mjs \
+  workflows/fixtures/requests/<id>/stage.json deploy/devnet.json && cd workflows
 
 # Phase 2: TEE answer + spend finalize in one workflow
 cre workflow simulate ./fluxo-request --target simulation-settings --non-interactive --trigger-index 0 \
@@ -81,20 +81,7 @@ Expected: the result has `"status":"delivered"` and a `spendTx`.
 
 ### Reused credit (negative test)
 
-Re-run the same `stage-spend.ts` command with the same `stage.json`. Expected: rejected with `NullifierUsed`.
-
-### Two-step path
-
-Stage a **different** credit first, then:
-
-```bash
-cre workflow simulate ./fluxo-spend --target simulation-settings --non-interactive --trigger-index 0 \
-  --http-payload ./fixtures/requests/<id>/spend.json --broadcast --wasm "$PWD/build/fluxo-spend.wasm"
-cre workflow simulate ./fluxo-infer --target simulation-settings --non-interactive --trigger-index 0 \
-  --http-payload ./fixtures/requests/<id>/infer.json --wasm "$PWD/build/fluxo-infer.wasm"
-```
-
-Expected: `fluxo-spend` returns `txStatus: SUCCESS`; `fluxo-infer` returns a status.
+Re-run the same `stage-spend.mjs` command with the same `stage.json`. Expected: `{"staged":false,"error":"NullifierUsed"}`.
 
 ### Settle
 

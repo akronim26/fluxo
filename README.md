@@ -1,4 +1,4 @@
-![Fluxo logo](public/logo.png)
+![Fluxo logo](docs/images/logo.png)
 
 ## Introduction
 
@@ -51,7 +51,7 @@ A normal AI request exposes you in three places: the text you write, the payment
 
 ## Architecture
 
-![Fluxo architecture](public/architecture.png)
+![Fluxo architecture](docs/images/architecture.png)
 
 ## Contract Addresses (Solana Devnet)
 
@@ -123,12 +123,6 @@ Run from `workflows/`:
 cre workflow simulate ./fluxo-request --target simulation-settings --non-interactive --trigger-index 0 \
   --http-payload ./fixtures/requests/<id>/request.json --broadcast --wasm "$PWD/build/fluxo-request.wasm"
 
-# Two-step path: spend finalize, then confidential answer
-cre workflow simulate ./fluxo-spend --target simulation-settings --non-interactive --trigger-index 0 \
-  --http-payload ./fixtures/requests/<id>/spend.json --broadcast --wasm "$PWD/build/fluxo-spend.wasm"
-cre workflow simulate ./fluxo-infer --target simulation-settings --non-interactive --trigger-index 0 \
-  --http-payload ./fixtures/requests/<id>/infer.json --wasm "$PWD/build/fluxo-infer.wasm"
-
 # Settle: pay the operator for finalized spends
 cre workflow simulate ./fluxo-settle --target simulation-settings --non-interactive --trigger-index 0 \
   --broadcast --wasm "$PWD/build/fluxo-settle.wasm"
@@ -140,11 +134,15 @@ cre workflow simulate ./fluxo-settle --target simulation-settings --non-interact
 To build a real request from on-chain state, the way the browser does:
 
 ```bash
-# Writes stage.json, spend.json, infer.json and ask.json to fixtures/requests/<id>/
+# Fresh pool only: deposit the test note (secret 123, nk 456) that make-request expects at leaf 0
+cd ../scripts && node --env-file=.env --import tsx deposit.ts && cd ../workflows
+
+# Writes stage.json, request.json and ask.json to fixtures/requests/<id>/
 npx tsx scripts/make-request.ts --i <credit index> --relayer <relayer pubkey>
 
-# Stage it
-cd ../scripts && node --env-file=.env --import tsx stage-spend.ts ../workflows/fixtures/requests/<id>/stage.json
+# Stage it with the gateway's relayer script (run from the repo root)
+cd .. && RELAYER_KEYPAIR=<path> node --env-file-if-exists=workflows/.env \
+  gateway/scripts/stage-spend.mjs workflows/fixtures/requests/<id>/stage.json deploy/devnet.json
 ```
 
 ### Solana Program

@@ -2,7 +2,7 @@
 
 Fluxo lets you ask an AI model a private question without your identity being attached to it. This doc walks through every part of the repo, what it does, and how a question moves through it.
 
-![Fluxo architecture](../public/architecture.png)
+![Fluxo architecture](images/architecture.png)
 
 ## Repository layout
 
@@ -11,11 +11,11 @@ Fluxo lets you ask an AI model a private question without your identity being at
 | `frontend/` | The web app: landing page and the workspace where you deposit and ask |
 | `gateway/` | A Bun + Hono server that relays requests and runs the CRE workflow |
 | `programs/` | The Anchor workspace: `fluxo_pool` (the real program) and `test_forwarder` (only for tests) |
-| `workflows/` | The Chainlink CRE project: four workflows and the shared `lib/` |
+| `workflows/` | The Chainlink CRE project: two workflows and the shared `lib/` |
 | `circuits/` | The `credit.circom` circuit, its build outputs and the scripts that produce them |
-| `scripts/` | One-off devnet tools: set up the pool, stage a spend by hand |
+| `scripts/` | One-off devnet tools: set up the pool, deposit the test note |
 | `deploy/` | `devnet.json` with every deployed address, and the program IDL |
-| `public/` | Images used by the README and this doc |
+| `docs/` | This doc, and the images used by it and the README |
 
 ## One question, start to finish
 
@@ -100,7 +100,7 @@ A Bun + Hono server with two ports. The public API is on `:8788`. The mailbox is
 
 - Requests and answers are kept in SQLite. Answers expire, and can only be read once.
 - `/api/ask` handles one request at a time, so CRE simulations never collide.
-- The proof check uses snarkjs (`scripts/verify-proof.mjs`). The relayer transaction is built in `scripts/stage-spend.mjs`. The faucet shells out to the `spl-token` and `solana` CLIs (`scripts/faucet.ts`).
+- The proof check uses snarkjs (`scripts/verify-proof.mjs`). The relayer transaction is built in `scripts/stage-spend.mjs`, which also runs on its own for staging by hand. The faucet shells out to the `spl-token` and `solana` CLIs (`scripts/faucet.ts`).
 - `cre.ts` runs `cre workflow simulate` on the prebuilt `workflows/build/fluxo-request.wasm` and reads the spend signature from its output.
 
 ## Solana program (`programs/fluxo_pool`)
@@ -120,12 +120,8 @@ The program holds the money and enforces every rule.
 
 | Workflow | Trigger | Job |
 |---|---|---|
-| `fluxo-request` | HTTP, runs in the enclave | Opens the question, calls the model, seals the answer, finalizes the spend, then delivers the answer. The gateway uses this one. |
-| `fluxo-spend` | HTTP | Finalizes a spend on its own |
-| `fluxo-infer` | HTTP, runs in the enclave | Produces the sealed answer on its own |
+| `fluxo-request` | HTTP, runs in the enclave | Opens the question, calls the model, seals the answer, finalizes the spend, then delivers the answer |
 | `fluxo-settle` | Cron, every 10 minutes | Pays the operator |
-
-`fluxo-spend` and `fluxo-infer` together are the older two-step version of `fluxo-request`. They're kept for manual runs.
 
 The shared code is in `lib/`:
 
@@ -135,7 +131,7 @@ The shared code is in `lib/`:
 
 Inside the enclave, the workflow reads two secrets: `MODEL_API_KEY` and `ENCLAVE_BOX_SK`. The model is `anthropic/claude-haiku-4.5`, capped at 600 tokens because CRE gives the HTTP call 10 seconds. Only the sealed answer crosses back out of the enclave.
 
-`scripts/` holds helpers: `build-wasm.sh` compiles all four workflows, `make-request.ts` builds a real request from on-chain state, `apply-devnet-config.ts` writes addresses into each `config.simulation.json`, and `settle-loop.sh` runs settle on a timer.
+`scripts/` holds helpers: `build-wasm.sh` compiles both workflows, `make-request.ts` builds a real request from on-chain state, `apply-devnet-config.ts` writes addresses into each `config.simulation.json`, and `settle-loop.sh` runs settle on a timer.
 
 ## Circuit (`circuits/`)
 
@@ -149,8 +145,9 @@ Inside the enclave, the workflow reads two secrets: `MODEL_API_KEY` and `ENCLAVE
 
 - `credit.wasm` and `credit_final.zkey` for the browser
 - `verification_key.json` for the gateway
-- `verifying_key.rs` for the program
 - test vectors and sample proofs for the tests
+
+`scripts/prove.mjs` regenerates the test fixtures and writes the verifying key straight into the program (`programs/programs/fluxo_pool/src/vk.rs`). `rust-check/` is a small native Rust check that the same proofs verify with `groth16-solana`.
 
 The setup is the public Hermez Powers of Tau plus one local phase-2 contribution. `setup-provenance.json` records both.
 
@@ -181,6 +178,7 @@ We generated the enclave key ourselves and store it as a CRE secret. For now tha
 ## Deployment
 
 - The program runs on Solana devnet at `HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC`. `deploy/devnet.json` lists every account, and `scripts/init-devnet.ts` created them.
+- `scripts/deposit.ts` deposits a fixed test note (secret 123, nk 456). `workflows/scripts/make-request.ts` expects that note at leaf 0 and uses it to build requests without a browser.
 - CRE runs through `cre workflow simulate`. Its Solana writes are real devnet transactions, sent through the simulator's forwarder.
 - tUSDC is our own devnet token with 6 decimals.
 
