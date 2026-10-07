@@ -166,6 +166,10 @@ NO_DNA=1 anchor deploy --provider.cluster devnet -p fluxo_pool
 cd ../scripts && node --env-file=.env --import tsx init-devnet.ts
 ```
 
+## Video Link
+
+https://vimeo.com/reviews/87cab3ae-cbf3-4d58-a16d-29b54b710d03/videos/1233770197
+
 ## Development Team
 
 - [Soham](https://github.com/0xr10t)
