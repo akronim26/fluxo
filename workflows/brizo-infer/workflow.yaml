@@ -1,0 +1,11 @@
+# ==========================================================================
+# CRE WORKFLOW SETTINGS FILE — brizo-infer (Confidential Workflow)
+# ==========================================================================
+simulation-settings:
+  user-workflow:
+    workflow-name: "brizo-infer"
+    deployment-registry: "private"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.simulation.json"
+    secrets-path: "../secrets.yaml"
