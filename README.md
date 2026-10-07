@@ -49,7 +49,7 @@ A normal AI request exposes you in three places: the text you write, the payment
 - `fluxo-spend` finalizes a spend on Solana and the CRE keystone forwarder.
 - `fluxo-settle` runs on a cron every 10 minutes and pays the operator 0.05 tUSDC per finalized spend.
 
-## Architecture & User Flow
+## Architecture
 
 ![Fluxo architecture](public/architecture.png)
 
