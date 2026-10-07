@@ -1,13 +1,13 @@
 [package]
-name = "brizo-pool"
+name = "fluxo-pool"
 version = "0.1.0"
-description = "Brizo credit pool: CRE keystone receiver with on-chain Groth16 spends"
+description = "Fluxo credit pool: CRE keystone receiver with on-chain Groth16 spends"
 edition = "2021"
 license = "MIT"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "brizo_pool"
+name = "fluxo_pool"
 
 [features]
 no-entrypoint = []
@@ -17,8 +17,6 @@ cpi = ["no-entrypoint"]
 default = []
 idl-build = ["anchor-lang/idl-build"]
 
-# Pins below are copied from cre-templates solana-read-write kv_store_receiver
-# (d0223f3) so the forwarder integration builds with the same toolchain.
 [dependencies]
 anchor-lang = "=0.31.0"
 anchor-attribute-access-control = "=0.31.0"

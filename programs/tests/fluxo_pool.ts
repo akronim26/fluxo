@@ -19,12 +19,9 @@ import { buildPoseidon } from "circomlibjs";
 import { expect } from "chai";
 import { existsSync, readFileSync } from "fs";
 
-// Localnet stand-in for the CRE forwarder (programs/test_forwarder); id from Anchor.toml.
 const FORWARDER = new PublicKey(
   readFileSync("Anchor.toml", "utf8").match(/test_forwarder = "(\w+)"/)![1]
 );
-// Lane C's fixture: a compressed spend payload proving against a tree whose only leaf
-// (index 0) is poseidon-vectors.json's commitment.
 const FIXTURE = "../circuits/build/sample-spend-compressed.json";
 const VECTORS = "../circuits/build/poseidon-vectors.json";
 
@@ -37,12 +34,12 @@ const hex = (b: Uint8Array | Buffer) => Buffer.from(b).toString("hex");
 const be32 = (n: bigint) => Buffer.from(n.toString(16).padStart(64, "0"), "hex");
 const rand31 = () => BigInt("0x" + hex(Keypair.generate().publicKey.toBytes().slice(0, 31)));
 
-describe("brizo_pool", () => {
+describe("fluxo_pool", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
   const conn = provider.connection;
   const payer = (provider.wallet as anchor.Wallet).payer;
-  const program: any = anchor.workspace.BrizoPool;
+  const program: any = anchor.workspace.FluxoPool;
 
   const state = Keypair.generate();
   const leaves = Keypair.generate();
@@ -80,7 +77,6 @@ describe("brizo_pool", () => {
     return { sig, cu };
   };
 
-  // Same CPI shape as the CRE forwarder: [state, authority (PDA signer), pool (w), ...variant accounts].
   const report = (bytes: Buffer, rest: { pubkey: PublicKey; isWritable: boolean }[]) =>
     send([
       new TransactionInstruction({
@@ -96,7 +92,6 @@ describe("brizo_pool", () => {
       }),
     ]);
 
-  // D6: phase 2 (CRE report) accounts — [pending (w), nullifiers (w), relayer (w)].
   const pendingPda = (nh: string) =>
     PublicKey.findProgramAddressSync([Buffer.from("pending"), pool.toBuffer(), Buffer.from(nh, "hex")], program.programId)[0];
   const spendAccounts = (nh: string, relayer: PublicKey = payer.publicKey) => [
@@ -104,7 +99,6 @@ describe("brizo_pool", () => {
     { pubkey: nullifiers.publicKey, isWritable: true },
     { pubkey: relayer, isWritable: true },
   ];
-  // D6: phase 1, sent directly by the relayer with its own compute budget.
   const stage = async (s: Record<string, string>) =>
     send([
       ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
@@ -317,7 +311,6 @@ describe("brizo_pool", () => {
     const p: any = await program.account.pool.fetch(pool);
     expect(p.spends.toNumber()).to.equal(1);
     expect(await conn.getAccountInfo(pendingPda(fixture.nullifierHash))).to.equal(null);
-    // Rent back minus this tx's fee.
     expect(await conn.getBalance(payer.publicKey)).to.be.greaterThan(before);
   });
 

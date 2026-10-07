@@ -7,10 +7,10 @@ resolution = false
 skip-lint = false
 
 [programs.devnet]
-brizo_pool = "HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC"
+fluxo_pool = "HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC"
 
 [programs.localnet]
-brizo_pool = "HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC"
+fluxo_pool = "HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC"
 test_forwarder = "5Kan8BhBcuZfGy6qhXcbta8vJ6C6YQHyqfDkMv58zGxo"
 
 [registry]

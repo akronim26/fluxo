@@ -1,7 +1,3 @@
-//! Test-only stand-in for the CRE keystone forwarder (never deployed to devnet).
-//! accounts: [state, forwarder_authority PDA, receiver program, ...receiver accounts]
-//! data: the receiver instruction data (anchor `on_report` discriminator + args), passed through.
-//! Signs as PDA ["forwarder", state, receiver] like the real forwarder; does no report checks.
 #![allow(unexpected_cfgs)]
 use solana_program::{
     account_info::AccountInfo, entrypoint, entrypoint::ProgramResult, instruction::{AccountMeta, Instruction},

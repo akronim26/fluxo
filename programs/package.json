@@ -1,5 +1,5 @@
 {
-  "name": "brizo-pool-tests",
+  "name": "fluxo-pool-tests",
   "private": true,
   "scripts": {
     "test": "anchor test"
