@@ -1,5 +1,3 @@
-# Fluxo
-
 ![Fluxo logo](architecture/logo.png)
 
 ## Introduction
