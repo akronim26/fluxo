@@ -1,5 +1,7 @@
 # Fluxo
 
+![Fluxo logo](architecture/logo.png)
+
 ## Introduction
 
 > **Private questions deserve private answers. Today, every AI request tells someone who you are.**
@@ -51,29 +53,32 @@ A normal AI request exposes you in three places: the text you write, the payment
 
 ## Architecture & User Flow
 
-```
-Browser app (frontend/)
-  1  faucet ───────────────► gateway /api/faucet            (mints test tUSDC)
-  2  deposit(commitment) ──► Solana brizo_pool.deposit      (user signs)
-  3  scrub locally (Ollama + rules), show the privacy diff
-  4  prove a credit (snarkjs), seal {question, bands} to the enclave key
-  5  POST /api/ask ────────► gateway (gateway/)
-                              a. verify the proof off-chain (cheap pre-check)
-                              b. relayer tx: brizo_pool.stage_spend
-                                   Groth16 verified ON-CHAIN, PendingSpend recorded
-                              c. CRE brizo-request (handlerInTee, one simulation)
-                                   ┌ in the enclave: check binding, open envelope,
-                                   │ call the model (Vault secret), seal the answer
-                                   ├ usingTheDons(): only the sealed answer crosses back
-                                   ├ SolanaClient.writeReport(Spend{nullifier, binding})
-                                   │   → keystone forwarder → brizo_pool.on_report:
-                                   │     binding must match the staged spend, nullifier
-                                   │     burned (reuse rejected), spend counted
-                                   └ only if the spend landed: POST the sealed answer
-                                     to the gateway mailbox
-  6  GET /api/answer/:id ──► sealed answer → decrypted in the browser, branches filled
+```mermaid
+sequenceDiagram
+    participant U as User (Browser)
+    participant G as Gateway
+    participant S as Solana (fluxo_pool)
+    participant C as CRE Enclave (fluxo-request)
+    participant M as AI Model
 
-CRE brizo-settle (cron) ─► writeReport(Settle) ─► vault pays the operator for finalized spends only
+    U->>S: deposit(commitment) + 10 tUSDC
+    U->>U: scrub question, make ZK proof, seal to enclave key
+    U-->>G: POST /api/ask (sealed question + proof)
+    G->>G: verify proof off-chain
+    G->>S: stage_spend(proof)
+    S->>S: verify Groth16, record PendingSpend
+    G->>C: trigger workflow
+    C->>C: open sealed question
+    C->>M: scrubbed question
+    M-->>C: answer
+    C->>C: seal answer
+    C->>S: writeReport(Spend) via forwarder
+    S->>S: check binding, burn nullifier
+    C-->>G: sealed answer (only if spend landed)
+    U->>G: GET /api/answer/:id
+    G-->>U: sealed answer
+    U->>U: decrypt, fill in real details
+    Note over S,C: every 10 min, fluxo-settle pays the operator
 ```
 
 ## Contract Addresses (Solana Devnet)
