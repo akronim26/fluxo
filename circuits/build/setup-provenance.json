@@ -1,0 +1,16 @@
+{
+  "ptauUrl": "https://circom.info/powersOfTau28_hez_final_12.ptau",
+  "ptauBlake2b512": "ded2694169b7b08e898f736d5de95af87c3f1a64594013351b1a796dbee393bd825f88f9468c84505ddd11eb0b1465ac9b43b9064aa8ec97f2b73e04758b8a4a",
+  "ptauSha512": "15006dffe6a7a6d9d6b77527dbeceb057579e1b9761e40f2a09a524e5207124bbf36c85886f454885cbe5427124bc5c5ab1a0e61ae9747fd6882a3f943f8ffee",
+  "circomVersion": "2.2.3",
+  "optimization": "O2",
+  "constraints": 2927,
+  "snarkjsVersion": "0.7.6",
+  "phase2Contributors": [
+    {
+      "name": "Brizo lane C local contribution",
+      "hash": "ec845aebdcb87ce8ef8049a37f1fddedaf1a590463b185f6304d787de4a88450cec170f4f872b50f3ef9cf6ece45d35ec1a33375994e9f14e95a1a570e5cfc7a"
+    }
+  ],
+  "phase2PublicCeremony": false
+}

@@ -1,0 +1,14 @@
+{
+  "curve": "bn128",
+  "depth": 10,
+  "publicInputOrder": [
+    "root",
+    "nullifierHash",
+    "requestBinding"
+  ],
+  "provingMs": 409,
+  "underFiveSeconds": true,
+  "verified": true,
+  "rustVerifierVersion": "0.2.0",
+  "setup": "public Hermez power 12 + one local phase-2 contribution"
+}
