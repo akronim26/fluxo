@@ -127,16 +127,14 @@ const dir = join(root, 'fixtures', 'requests', id)
 mkdirSync(dir, { recursive: true })
 const write = (name: string, v: unknown) => writeFileSync(join(dir, name), `${JSON.stringify(v, null, 2)}\n`)
 write('stage.json', stage)
-write('spend.json', { requestId: id, nullifierHash: stage.nullifierHash, requestBinding: stage.requestBinding, relayer: args.relayer })
-const infer = {
+const requestFields = {
 	requestId: id,
 	ciphertext: bytesToBase64(ciphertext),
 	nonce: bytesToBase64(nonce),
 	clientPub: bytesToBase64(client.publicKey),
 	requestBinding: bytesToHex(binding),
 }
-write('infer.json', infer)
-write('request.json', { ...infer, nullifierHash: stage.nullifierHash, relayer: args.relayer })
+write('request.json', { ...requestFields, nullifierHash: stage.nullifierHash, relayer: args.relayer })
 write('ask.json', {
 	requestId: id,
 	ciphertext: bytesToBase64(ciphertext),

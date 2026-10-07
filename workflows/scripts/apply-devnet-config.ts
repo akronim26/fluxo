@@ -18,10 +18,6 @@ const solana = {
 	pool: need('pool'),
 }
 
-const spend = {
-	solana: { ...solana, nullifiers: need('nullifiers') },
-	computeLimit: 300_000,
-}
 const settle = {
 	schedule: '0 */10 * * * *',
 	epochSeconds: 600,
@@ -34,11 +30,11 @@ const settle = {
 	computeLimit: 300_000,
 }
 
-writeFileSync(join(root, 'fluxo-spend', 'config.simulation.json'), `${JSON.stringify(spend, null, 2)}\n`)
-const infer = JSON.parse(readFileSync(join(root, 'fluxo-infer', 'config.simulation.json'), 'utf8'))
+const requestPath = join(root, 'fluxo-request', 'config.simulation.json')
+const request = JSON.parse(readFileSync(requestPath, 'utf8'))
 writeFileSync(
-	join(root, 'fluxo-request', 'config.simulation.json'),
-	`${JSON.stringify({ ...infer, solana: spend.solana, computeLimit: spend.computeLimit }, null, 2)}\n`,
+	requestPath,
+	`${JSON.stringify({ ...request, solana: { ...solana, nullifiers: need('nullifiers') }, computeLimit: 300_000 }, null, 2)}\n`,
 )
 writeFileSync(join(root, 'fluxo-settle', 'config.simulation.json'), `${JSON.stringify(settle, null, 2)}\n`)
-console.log(`wrote fluxo-spend, fluxo-settle and fluxo-request configs from ${src}`)
+console.log(`wrote fluxo-request and fluxo-settle configs from ${src}`)
