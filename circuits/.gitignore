@@ -1,0 +1,11 @@
+node_modules/
+build/*.ptau
+build/*_0000.zkey
+build/*.wtns
+build/*.sym
+build/*.r1cs
+build/credit_js/
+rust-check/target/
+.env
+.env.*
+!.env.example
