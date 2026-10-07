@@ -21,8 +21,9 @@ export function scrub(question: string, profile: Profile): PrivacyReview {
 }
 export async function rewriteLocally(question: string, profile: Profile): Promise<PrivacyReview> {
   const response = await fetch('http://localhost:11434/api/chat', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(20_000),
-    body: JSON.stringify({ model: 'qwen3:8b', stream: false, format: 'json', messages: [
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(45_000), // allows a cold model load
+    // think: false — qwen3's hidden reasoning made a one-line rewrite take ~20 s (~450 tokens); off, it takes 1–3 s.
+    body: JSON.stringify({ model: 'qwen3:8b', stream: false, think: false, format: 'json', messages: [
       { role: 'system', content: 'Rewrite this question in neutral third person. Remove names, employers, exact locations, identifiers, dates and personal numbers. Preserve its general intent. Output JSON {"question": string}. Do not answer the question. Do not invent facts.' },
       { role: 'user', content: JSON.stringify({ question, profile }) },
     ] }),
