@@ -4,7 +4,7 @@ use solana_bn254::compression::prelude::{alt_bn128_g1_compress, alt_bn128_g2_com
 use groth16_solana::decompression::{decompress_g1, decompress_g2};
 
 mod key {
-    include!("../../build/verifying_key.rs");
+    include!("../../../programs/programs/fluxo_pool/src/vk.rs");
 }
 
 fn bytes<const N: usize>(value: &Value) -> [u8; N] {
