@@ -14,10 +14,10 @@ A normal AI request exposes you in three places: the text you write, the payment
 
 ## Key Features
 
-- **Two-Layer Scrubber**: A local model rewrites the question in a neutral voice and splits it into generic parts. Deterministic rules then generalise structured fields and block the request if a known personal value survives.
+- **Two-Layer Scrubber**: A local model rewrites the question in a neutral voice. Deterministic rules then replace emails, dates, phone numbers and your known personal values, and nothing is sent until you approve the result.
 - **Privacy Diff**: The user sees exactly what they typed next to exactly what will be sent, before anything leaves the device.
 - **Local Re-Personalisation**: The model returns a branched answer, and the browser fills in the user's real values locally.
-- **Anonymous ZK Credits**: One 10 tUSDC deposit buys 200 credits. Each question spends one credit with a Groth16 proof of owning some unspent deposit wuthout revealing the actual one.
+- **Anonymous ZK Credits**: One 10 tUSDC deposit buys 200 credits. Each question spends one credit with a Groth16 proof of owning some unspent deposit without revealing the actual one.
 - **On-Chain Proof Verification**: The Solana program verifies every Groth16 proof itself, so no relayer or forwarder can create a spend.
 - **Double-Spend Protection**: Every credit carries a one-time nullifier so you can't reuse one.
 - **Confidential Inference**: The decrypted question, the model's answer and the API key exist only inside the CRE enclave.
@@ -35,7 +35,7 @@ A normal AI request exposes you in three places: the text you write, the payment
 
 - **Deposit**: 10 tUSDC goes into the pool vault, and a secret commitment is inserted into a depth-10 Poseidon Merkle tree on-chain.
 - **Proof**: For each question, the browser proves with `snarkjs` that it knows a commitment in a recent tree root.
-- **Nullifier**: The proof exposes an one-time nullifier hash. The program records it, so the same credit can never be spent again.
+- **Nullifier**: The proof exposes a one-time nullifier hash. The program records it, so the same credit can never be spent again.
 - **Binding**: Each proof is bound to one specific request, so it can't be reused for a different question.
 
 ### 3. Confidential Inference
@@ -46,7 +46,7 @@ A normal AI request exposes you in three places: the text you write, the payment
 
 ### 4. Settlement
 
-- `fluxo-spend` finalizes a spend on Solana and the CRE keystone forwarder.
+- `fluxo-request` finalizes the spend on Solana through `SolanaClient.writeReport` and the CRE keystone forwarder.
 - `fluxo-settle` runs on a cron every 10 minutes and pays the operator 0.05 tUSDC per finalized spend.
 
 ## Architecture
