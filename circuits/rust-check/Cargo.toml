@@ -1,0 +1,10 @@
+[package]
+name = "brizo-credit-host-check"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+groth16-solana = "=0.2.0"
+serde_json = "1"
+solana-bn254 = "=2.2.2"
