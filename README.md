@@ -164,8 +164,6 @@ NO_DNA=1 anchor deploy --provider.cluster devnet -p brizo_pool
 cd ../scripts && node --env-file=.env --import tsx init-devnet.ts
 ```
 
-More detail in [`gateway/README.md`](gateway/README.md), [`frontend/README.md`](frontend/README.md) and [`circuits/README.md`](circuits/README.md).
-
 ## Development Team
 
 - [Soham](https://github.com/0xr10t)
