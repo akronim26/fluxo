@@ -1,21 +1,8 @@
 # Architecture
 
-Fluxo lets you ask an AI model a private question without your identity being attached to it. This doc walks through every part of the repo, what it does, and how a question moves through it.
+Fluxo lets you ask an AI model a private question without your identity being attached to it. This doc walks through what it does and how a question moves through it.
 
 ![Fluxo architecture](images/architecture.png)
-
-## Repository layout
-
-| Folder | What lives there |
-|---|---|
-| `frontend/` | The web app: landing page and the workspace where you deposit and ask |
-| `gateway/` | A Bun + Hono server that relays requests and runs the CRE workflow |
-| `programs/` | The Anchor workspace: `fluxo_pool` (the real program) and `test_forwarder` (only for tests) |
-| `workflows/` | The Chainlink CRE project: two workflows and the shared `lib/` |
-| `circuits/` | The `credit.circom` circuit, its build outputs and the scripts that produce them |
-| `scripts/` | One-off devnet tools: set up the pool, deposit the test note |
-| `deploy/` | `devnet.json` with every deployed address, and the program IDL |
-| `docs/` | This doc, and the images used by it and the README |
 
 ## One question, start to finish
 
@@ -31,44 +18,19 @@ Fluxo lets you ask an AI model a private question without your identity being at
 
 Every 10 minutes, `fluxo-settle` pays the operator for the spends that went through.
 
-## Frontend (`frontend/`)
-
-A Vite + React app with two screens. `#app` in the URL opens the workspace. Everything else shows the landing page. The workspace is lazy-loaded, so the landing page stays light.
-
-### Workspace screens
-
-- `Workspace.tsx` loads `/api/config` from the gateway and shows whether private requests are ready.
-- `FundingPanel.tsx` handles the wallet, the faucet, deposits and your credit count. "Refresh" checks your notes against the on-chain `Leaves` account.
-- `QuestionPanel.tsx` is where you write the question, fill in a small profile (name, age, city, other private terms), review the scrubbed text and send it.
-- `BackupDialog.tsx` exports and imports an encrypted backup of your credit notes.
-
-### What each `lib/` file does
-
-| File | Job |
-|---|---|
-| `privacy.ts` | The scrubber, and the code that personalises the answer |
-| `crypto.ts` | Sealing the question, opening the answer, the request binding |
-| `ask.ts` | The whole send flow: reserve a credit, prove, post, poll for the answer |
-| `prover.worker.ts` | Runs snarkjs in a Web Worker so the page doesn't freeze |
-| `notes.ts` | Credit notes in `localStorage`, and encrypted backups |
-| `solana.ts` | Reads the tree, builds Merkle paths, sends the deposit |
-| `api.ts` | Talks to the gateway and turns its error codes into readable messages |
-| `useWallet.ts` | Finds Wallet Standard wallets that support devnet |
-
 ### The scrubber
 
 It runs in two passes, both on your device.
 
 - If Ollama is running locally, `qwen3:8b` first rewrites the question in neutral third person and drops names, employers, places, dates and numbers.
-- Then fixed rules run on the result. They remove emails, exact dates and phone-like numbers. They replace your profile values: your name and private terms become `[private detail]`, your city becomes "a city", and your age becomes "in their 30s".
-- Capitalised words and leftover numbers are flagged for you to look at.
+- Then fixed rules run on the result. They remove emails, exact dates and phone-like numbers. They replace your profile values: your name and private terms become `[private detail]`, your city becomes a region, and your age becomes a range.
 - Without Ollama only the rules run, and the review screen says that your writing style isn't hidden in that mode.
 
 ### Credit notes
 
 - A note holds `secret`, `nk`, the leaf index and `nextI`, the number of the next credit to spend (0 to 199).
-- Notes live in `localStorage` under `fluxo:notes:v1:<pool>`. Nothing about them leaves the browser.
-- Backups are encrypted with AES-GCM, using a key derived from your password (PBKDF2, 310,000 rounds, at least 12 characters).
+- Notes live in `localStorage`. Nothing about them leaves the browser.
+- Backups are encrypted with `AES-GCM`, using a key derived from your password (PBKDF2, 310,000 rounds, at least 12 characters).
 
 ### Sending a question safely
 
@@ -79,13 +41,9 @@ It runs in two passes, both on your device.
 
 ### Personalising the answer
 
-The model answers in JSON with a general answer plus "branches", for example "if age < 40, do X". The browser checks each branch against your real age or city and shows only the ones that apply. The model never sees those values.
+The model answers in JSON with a general answer plus branches, for example "if age < 40, do X". The browser checks each branch against your real age or city and shows only the ones that apply. The model never sees those values.
 
-### Configuration
-
-`VITE_GATEWAY_URL` points at the gateway; leave it empty when both run on the same origin. In development, Vite proxies `/api` and `/circuits` to `http://127.0.0.1:8788`. `VITE_SOLANA_RPC_URL` sets the devnet RPC.
-
-## Gateway (`gateway/`)
+## Gateway
 
 A Bun + Hono server with two ports. The public API is on `:8788`. The mailbox is on `:8787` and must never be exposed.
 
@@ -100,10 +58,10 @@ A Bun + Hono server with two ports. The public API is on `:8788`. The mailbox is
 
 - Requests and answers are kept in SQLite. Answers expire, and can only be read once.
 - `/api/ask` handles one request at a time, so CRE simulations never collide.
-- The proof check uses snarkjs (`scripts/verify-proof.mjs`). The relayer transaction is built in `scripts/stage-spend.mjs`, which also runs on its own for staging by hand. The faucet shells out to the `spl-token` and `solana` CLIs (`scripts/faucet.ts`).
+- The proof check uses snarkjs. The relayer transaction is built in `scripts/stage-spend.mjs`, which also runs on its own for staging by hand. The faucet shells out to the `spl-token` and `solana` CLIs.
 - `cre.ts` runs `cre workflow simulate` on the prebuilt `workflows/build/fluxo-request.wasm` and reads the spend signature from its output.
 
-## Solana program (`programs/fluxo_pool`)
+## Solana program
 
 The program holds the money and enforces every rule.
 
@@ -116,7 +74,7 @@ The program holds the money and enforces every rule.
 
 `test_forwarder` stands in for the CRE forwarder in the Anchor tests.
 
-## CRE workflows (`workflows/`)
+## CRE workflows
 
 | Workflow | Trigger | Job |
 |---|---|---|
@@ -133,7 +91,7 @@ Inside the enclave, the workflow reads two secrets: `MODEL_API_KEY` and `ENCLAVE
 
 `scripts/` holds helpers: `build-wasm.sh` compiles both workflows, `make-request.ts` builds a real request from on-chain state, `apply-devnet-config.ts` writes addresses into each `config.simulation.json`, and `settle-loop.sh` runs settle on a timer.
 
-## Circuit (`circuits/`)
+## Circuit
 
 `credit.circom` proves three things without revealing your note:
 
@@ -147,7 +105,7 @@ Inside the enclave, the workflow reads two secrets: `MODEL_API_KEY` and `ENCLAVE
 - `verification_key.json` for the gateway
 - test vectors and sample proofs for the tests
 
-`scripts/prove.mjs` regenerates the test fixtures and writes the verifying key straight into the program (`programs/programs/fluxo_pool/src/vk.rs`). `rust-check/` is a small native Rust check that the same proofs verify with `groth16-solana`.
+`scripts/prove.mjs` regenerates the test fixtures and writes the verifying key straight into the program. `rust-check/` is a small native Rust check that the same proofs verify with `groth16-solana`.
 
 The setup is the public Hermez Powers of Tau plus one local phase-2 contribution. `setup-provenance.json` records both.
 
@@ -181,16 +139,3 @@ We generated the enclave key ourselves and store it as a CRE secret. For now tha
 - `scripts/deposit.ts` deposits a fixed test note (secret 123, nk 456). `workflows/scripts/make-request.ts` expects that note at leaf 0 and uses it to build requests without a browser.
 - CRE runs through `cre workflow simulate`. Its Solana writes are real devnet transactions, sent through the simulator's forwarder.
 - tUSDC is our own devnet token with 6 decimals.
-
-## Numbers
-
-| Thing | Value |
-|---|---|
-| Deposit | 10 tUSDC |
-| Credits per deposit | 200 |
-| Price per credit | 0.05 tUSDC |
-| Tree depth | 10 (1,024 deposits) |
-| Root history | 32 |
-| Nullifier capacity | 4,096 |
-| Faucet | 20 tUSDC + 0.02 SOL, once per wallet per hour |
-| Answer cap | 600 tokens |
