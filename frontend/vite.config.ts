@@ -12,6 +12,12 @@ export default defineConfig(({ mode }) => {
       '/api': { target, changeOrigin: true, timeout: 300_000, proxyTimeout: 300_000 },
       '/circuits': { target, changeOrigin: true },
     } },
+    // `vite preview` serves the production build on one origin for hosting through a
+    // tunnel: /api and /circuits go to the gateway, so the app needs no gateway URL.
+    preview: { port: 4173, strictPort: true, allowedHosts: ['.trycloudflare.com'], proxy: {
+      '/api': { target, changeOrigin: true, timeout: 300_000, proxyTimeout: 300_000 },
+      '/circuits': { target, changeOrigin: true },
+    } },
     build: { target: 'es2022' },
   };
 });

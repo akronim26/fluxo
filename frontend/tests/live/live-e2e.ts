@@ -112,7 +112,9 @@ try {
   // 4. Question with profile details → local Ollama rewrite + rules → privacy diff.
   await page.getByRole('button', { name: /Try a sample/ }).click();
   const localModel = page.getByRole('checkbox', { name: /Rewrite with local Ollama/ });
-  if (!(await localModel.isChecked())) await localModel.check();
+  // RULES_ONLY=1: judge path on the hosted site (browsers block a public page from calling local Ollama).
+  if (process.env.RULES_ONLY) { if (await localModel.isChecked()) await localModel.uncheck(); }
+  else if (!(await localModel.isChecked())) await localModel.check();
   await page.getByRole('button', { name: 'Preview privacy' }).click();
   await page.getByText('A little less personal.').waitFor({ timeout: 180_000 });
   const mode = await page.locator('.mode-badge').innerText();

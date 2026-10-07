@@ -52,8 +52,16 @@ const stage = deployment ? createStager({ deployment, deploymentPath: devnetPath
 const fund = deployment ? createFaucetRunner({ mint: deployment.mint, keypairPath: process.env.FAUCET_KEYPAIR_PATH || undefined, mintAuthorityPath: process.env.FAUCET_MINT_AUTHORITY_PATH || undefined, workflowEnvPath: join(workflowsDir, '.env'), tokenExecutable: process.env.SPL_TOKEN_BIN || undefined, solanaExecutable: process.env.SOLANA_BIN || undefined,
   onSignature: (step, signature) => console.log(JSON.stringify({ event: 'faucet_transaction', step, signature })),
 }) : undefined;
+// Private devnet RPC for the browser proxy: read SOLANA_DEVNET_RPC_URL from the
+// workflows .env (the gateway never exposes it; only /api/rpc results leave).
+const workflowEnv = await readFile(join(workflowsDir, '.env'), 'utf8').catch(() => '');
+const privateRpcUrl = process.env.SOLANA_DEVNET_RPC_URL || workflowEnv.match(/^SOLANA_DEVNET_RPC_URL=(.+)$/m)?.[1]?.trim() || '';
+const rpcProxy = privateRpcUrl ? async (request: unknown) => {
+  const upstream = await fetch(privateRpcUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request), signal: AbortSignal.timeout(30_000) });
+  return new Response(await upstream.text(), { status: upstream.status, headers: { 'Content-Type': 'application/json' } });
+} : undefined;
 const gateway = createGateway({
-  db, publicConfig, spendReady, faucetReady: publicConfig.ready.faucet, allowedOrigins: (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173').split(',').filter(Boolean),
+  db, publicConfig, rpcProxy, spendReady, faucetReady: publicConfig.ready.faucet, allowedOrigins: (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173').split(',').filter(Boolean),
   verifyProof: createProofVerifier({ verifyingKey: join(buildDir, 'verification_key.json'), nodeExecutable: process.env.NODE_BIN || undefined }),
   stageSpend: async (payload, requestId) => {
     if (!spendReady || !stage) throw new GatewayError('devnet_spend_not_configured', 503);

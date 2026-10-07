@@ -4,14 +4,20 @@ import { Connection, PublicKey, TransactionMessage, VersionedTransaction, Transa
 import type { WalletAccount } from '@wallet-standard/base';
 import type { SolanaSignTransactionFeature } from '@solana/wallet-standard-features';
 import { poseidon2 } from 'poseidon-lite/poseidon2';
-import type { PublicConfig } from './api';
+import { gatewayOrigin, type PublicConfig } from './api';
 import { FIELD, fromHex, hex } from './crypto';
 import { saveNote, type CreditNote } from './notes';
 import idl from '../../../deploy/idl/fluxo_pool.json';
 
 const tokenProgram = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const associatedProgram = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
-export function connection(config: PublicConfig) { return new Connection(import.meta.env.VITE_SOLANA_RPC_URL || config.rpcUrl, 'confirmed'); }
+// Solana RPC goes through the gateway's /api/rpc proxy, which forwards a fixed set of
+// methods to a private devnet RPC; no RPC key ships in this bundle. VITE_SOLANA_RPC_URL
+// can still override it (e.g. a public RPC for local debugging).
+export function connection(_config: PublicConfig) {
+  const proxy = `${gatewayOrigin || window.location.origin}/api/rpc`;
+  return new Connection(import.meta.env.VITE_SOLANA_RPC_URL || proxy, 'confirmed');
+}
 function requireDeployment(config: PublicConfig) {
   if (!config.pool || !config.leaves || !config.tree || !config.vault || !config.mint || config.programId !== idl.address || config.tokenProgram !== tokenProgram) throw new Error('The gateway is not configured for this deployed Fluxo program.');
   return { pool: config.pool, leaves: config.leaves, tree: config.tree, vault: config.vault, mint: config.mint, programId: config.programId };
@@ -49,6 +55,27 @@ export async function syncNote(config: PublicConfig, note: CreditNote) {
   if (index < 0) throw new Error('This deposit is not confirmed in the pool yet. Keep the note and try refreshing later.');
   return saveNote({ ...note, leafIndex: index });
 }
+// Wallets such as Phantom add their own instructions before signing: Compute Budget
+// (priority fee / unit limit) and Lighthouse assertions that protect the user. Accept
+// only those; the fee payer, the single signer and the deposit instruction (program,
+// accounts, data) must be exactly what the app built, so nothing can redirect funds.
+const LIGHTHOUSE_PROGRAM = 'L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95';
+const WALLET_ADDED_PROGRAMS = new Set([ComputeBudgetProgram.programId.toBase58(), LIGHTHOUSE_PROGRAM]);
+function assertOnlyWalletAdditions(signed: VersionedTransaction, built: VersionedTransaction, depositProgram: string) {
+  const fail = (why: string): never => { throw new Error(`The wallet changed the deposit transaction (${why}).`); };
+  const s = signed.message, b = built.message;
+  if (s.addressTableLookups.length) fail('address lookup tables');
+  if (s.header.numRequiredSignatures !== 1) fail('extra signers');
+  const sKeys = s.staticAccountKeys.map(k => k.toBase58()), bKeys = b.staticAccountKeys.map(k => k.toBase58());
+  if (sKeys[0] !== bKeys[0]) fail('fee payer');
+  const decode = (m: typeof s, keys: string[]) => m.compiledInstructions.map(ix => ({ program: keys[ix.programIdIndex], accounts: ix.accountKeyIndexes.map(i => keys[i]).join(','), data: Buffer.from(ix.data).toString('hex') }));
+  const signedIxs = decode(s, sKeys), builtDeposit = decode(b, bKeys).find(ix => ix.program === depositProgram)!;
+  const deposits = signedIxs.filter(ix => ix.program === depositProgram);
+  if (deposits.length !== 1 || deposits[0].accounts !== builtDeposit.accounts || deposits[0].data !== builtDeposit.data) fail('deposit instruction');
+  const unexpected = signedIxs.find(ix => ix.program !== depositProgram && !WALLET_ADDED_PROGRAMS.has(ix.program));
+  if (unexpected) fail(`unexpected program ${unexpected.program}`);
+}
+
 export async function deposit(config: PublicConfig, note: CreditNote, account: WalletAccount, signer: SolanaSignTransactionFeature['solana:signTransaction'], status: (message: string) => void) {
   const d = requireDeployment(config), rpc = connection(config), user = new PublicKey(account.address);
   if (!account.chains.includes('solana:devnet') || !signer.supportedTransactionVersions.includes(0)) throw new Error('Choose a wallet account that supports Solana devnet and version 0 transactions.');
@@ -74,10 +101,13 @@ export async function deposit(config: PublicConfig, note: CreditNote, account: W
   const [signed] = await signer.signTransaction({ account, chain: 'solana:devnet', transaction: transaction.serialize() });
   if (!signed) throw new Error('The wallet did not return a signed transaction.');
   const signedTx = VersionedTransaction.deserialize(signed.signedTransaction);
-  if (!signedTx.message.serialize().every((value, i) => value === transaction.message.serialize()[i]) || signedTx.message.serialize().length !== transaction.message.serialize().length) throw new Error('The wallet changed the deposit transaction.');
+  assertOnlyWalletAdditions(signedTx, transaction, d.programId);
   const expectedSignature = bs58.encode(signedTx.signatures[0]);
   saveNote({ ...note, depositTx: expectedSignature });
-  const signature = await rpc.sendRawTransaction(signed.signedTransaction, { skipPreflight: false, maxRetries: 2 });
+  // Preflight is skipped: the deposit was already simulated before signing, and on
+  // load-balanced RPCs a second simulation can fail with "Blockhash not found" when it
+  // lands on a node a few slots behind. Confirmation below still reports any real failure.
+  const signature = await rpc.sendRawTransaction(signed.signedTransaction, { skipPreflight: true, maxRetries: 5 });
   const submitted = saveNote({ ...note, depositTx: signature });
   status('Deposit submitted. Waiting for confirmation…');
   for (let expired = false; ;) {

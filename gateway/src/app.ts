@@ -20,9 +20,14 @@ export type Dependencies = {
   circuitFile?: (name: string) => Promise<Response>;
   spendReady?: boolean;
   faucetReady?: boolean;
+  // Forwards one JSON-RPC request to the private devnet RPC (key stays server-side).
+  rpcProxy?: (request: { jsonrpc: string; id: unknown; method: string; params?: unknown }) => Promise<Response>;
 };
 type Row = { id: string; state: string; expires: number; client_pub: string; stage_tx: string | null; spend_tx: string | null; ciphertext: string | null; nonce: string | null; error: string | null };
 const idSchema = z.string().regex(/^[0-9a-f]{32}$/);
+// The Solana methods the app calls (frontend/src/lib/solana.ts), nothing else.
+export const RPC_METHODS = new Set(['getAccountInfo', 'getLatestBlockhash', 'simulateTransaction', 'sendTransaction', 'getSignatureStatuses', 'getBlockHeight', 'getGenesisHash', 'getHealth']);
+const rpcRequestSchema = z.object({ jsonrpc: z.literal('2.0'), id: z.union([z.string(), z.number(), z.null()]), method: z.string(), params: z.array(z.unknown()).optional() }).strict();
 const askSchema = z.object({ requestId: idSchema, ciphertext: z.string(), nonce: z.string(), clientPub: z.string(), proof: z.unknown(), publicSignals: z.array(z.string()).length(3) }).strict();
 const mailboxSchema = z.object({ requestId: idSchema, ciphertext: z.string(), nonce: z.string() }).strict();
 const lifetime = 15 * 60 * 1000;
@@ -89,6 +94,19 @@ export function createGateway(dependencies: Dependencies) {
     publicApp.use('*', cors({ origin: origin => origins.includes(origin) ? origin : '', allowMethods: ['GET', 'POST', 'OPTIONS'], allowHeaders: ['Content-Type'] }));
   }
   publicApp.get('/api/config', c => c.json(dependencies.publicConfig));
+  // Browser → Solana reads and the deposit send go through here, so the private RPC key
+  // never ships in the app bundle. Only the methods the app uses are forwarded.
+  publicApp.post('/api/rpc', async c => {
+    if (!dependencies.rpcProxy) throw new GatewayError('rpc_not_configured', 503);
+    rate(`rpc:${c.env?.peerIp ?? 'local'}`, 240, 60_000);
+    const raw = await c.req.text();
+    if (raw.length > 16_384) throw new GatewayError('rpc_request_too_large', 413);
+    let request: unknown;
+    try { request = JSON.parse(raw); } catch { throw new GatewayError('invalid_rpc_request', 400); }
+    const parsed = rpcRequestSchema.safeParse(request);
+    if (!parsed.success || !RPC_METHODS.has(parsed.data.method)) throw new GatewayError('rpc_method_not_allowed', 400);
+    return dependencies.rpcProxy(parsed.data);
+  });
   if (dependencies.circuitFile) publicApp.get('/circuits/:name', c => dependencies.circuitFile!(c.req.param('name')));
   publicApp.post('/api/faucet', async c => {
     if (dependencies.faucetReady === false) throw new GatewayError('faucet_not_configured', 503);
