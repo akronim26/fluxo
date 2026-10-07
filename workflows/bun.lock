@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "brizo-workflows",
+      "name": "fluxo-workflows",
       "dependencies": {
         "@chainlink/cre-sdk": "1.23.0",
         "@noble/hashes": "1.8.0",

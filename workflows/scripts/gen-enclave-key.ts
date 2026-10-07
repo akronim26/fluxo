@@ -1,12 +1,3 @@
-// Generates the enclave box key pair (x25519, nacl.box).
-//   - Appends SECRET_ENCLAVE_BOX_SK=<base64 secret key> to workflows/.env
-//     (never printed, never committed).
-//   - Writes the public key to workflows/enclave-public-key.json (public; the
-//     app and gateway encrypt questions to it).
-// Refuses to run if .env already holds a non-empty SECRET_ENCLAVE_BOX_SK, so an
-// existing key is never silently replaced.
-//
-// Usage (from workflows/): bun run scripts/gen-enclave-key.ts
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import nacl from 'tweetnacl'

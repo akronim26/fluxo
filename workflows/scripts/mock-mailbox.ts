@@ -1,12 +1,7 @@
-// Local stand-in for the gateway's POST /mailbox/:requestId (lane C owns the real one).
-// Stores the sealed answer and, when fixtures/.infer-client.json matches the
-// requestId, decrypts it with the test client key to show the round trip works.
-//
-// Usage (from workflows/): bun run scripts/mock-mailbox.ts   (listens on :8787)
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import nacl from 'tweetnacl'
-import { base64ToBytes } from '../lib/brizo'
+import { base64ToBytes } from '../lib/fluxo'
 
 const root = join(import.meta.dir, '..')
 const port = Number(process.env.PORT ?? 8787)

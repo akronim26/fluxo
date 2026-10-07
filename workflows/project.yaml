@@ -1,12 +1,3 @@
-# ==========================================================================
-# CRE PROJECT SETTINGS FILE — Brizo
-# ==========================================================================
-# `simulation-settings` is used by every `cre workflow simulate` (with or without
-# --broadcast). Solana writes in simulation always go through CRE's simulator
-# mock forwarder on devnet.
-#
-# The RPC URL comes from SOLANA_DEVNET_RPC_URL in workflows/.env (it may contain an
-# API key, so it is not committed here).
 simulation-settings:
   rpcs:
     - chain-name: solana-devnet

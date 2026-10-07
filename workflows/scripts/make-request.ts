@@ -1,23 +1,3 @@
-// Builds one real Brizo request the way the browser/SDK does, against the live
-// devnet pool — no fixtures, no shortcuts:
-//   1. reads the Leaves and Tree accounts over RPC and rebuilds the Poseidon tree;
-//   2. seals {question, bands} to the enclave public key with a fresh client key;
-//   3. requestBinding = BE(sha256(requestId ‖ ciphertext)) mod r (HANDOFF-A D2);
-//   4. proves the credit (circuits/build/credit.wasm + credit_final.zkey) and
-//      checks it with verification_key.json;
-//   5. writes, under fixtures/requests/<requestId>/:
-//        stage.json   input for brizo_pool.stage_spend (scripts/stage-spend.ts)
-//        spend.json   brizo-spend HTTP payload
-//        infer.json   brizo-infer HTTP payload
-//        ask.json     the gateway's POST /api/ask body (snarkjs proof + public signals)
-//        client.json  the one-time client secret key (gitignored) to open the answer
-//
-// Usage (from workflows/; runs under Node because snarkjs's worker threads hang in Bun):
-//   npx tsx scripts/make-request.ts --i <credit index> --relayer <base58> \
-//     [--note path/to/note.json] [--question "..."]
-// note.json = { "secret": "<decimal>", "nk": "<decimal>", "leafIndex": <n> }.
-// Without --note it uses lane C's published test note (secret 123, nk 456), which
-// is leaf 0 of the devnet pool. Each (note, i) pair can be spent once.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -26,7 +6,7 @@ import { buildPoseidon } from 'circomlibjs'
 import { groth16 } from 'snarkjs'
 import nacl from 'tweetnacl'
 import { proofToSolanaCompressed } from '../../circuits/lib/protocol.mjs'
-import { bytesToBase64, bytesToHex, computeRequestBinding } from '../lib/brizo'
+import { bytesToBase64, bytesToHex, computeRequestBinding } from '../lib/fluxo'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const repo = join(root, '..')
@@ -51,8 +31,6 @@ const note = args.note
 const deploy = JSON.parse(readFileSync(join(repo, 'deploy', 'devnet.json'), 'utf8'))
 const { enclaveBoxPublicKey } = JSON.parse(readFileSync(join(root, 'enclave-public-key.json'), 'utf8'))
 
-// ─── On-chain state ─────────────────────────────────────────
-
 const rpcUrl = process.env.SOLANA_DEVNET_RPC_URL || deploy.rpcUrl
 const accountData = async (address: string): Promise<Buffer> => {
 	const res = await fetch(rpcUrl, {
@@ -75,7 +53,6 @@ const H = (a: bigint, b: bigint): bigint => poseidon.F.toObject(poseidon([a, b])
 const fromBE = (b: Uint8Array) => BigInt(`0x${Buffer.from(b).toString('hex') || '0'}`)
 const toBE32 = (n: bigint) => Buffer.from(n.toString(16).padStart(64, '0'), 'hex')
 
-// Leaves: 8-byte discriminator, count u32, pad u32, leaves[1024][32].
 const leavesData = await accountData(deploy.leaves)
 const count = leavesData.readUInt32LE(8)
 const leaves = Array.from({ length: count }, (_, k) => fromBE(leavesData.subarray(16 + 32 * k, 48 + 32 * k)))
@@ -85,7 +62,6 @@ if (leaves[note.leafIndex] !== commitment) {
 	throw new Error(`leaf ${note.leafIndex} on-chain is not this note's commitment`)
 }
 
-// Merkle path, depth 10; empty leaf 0, zeros[d+1] = H(zeros[d], zeros[d]).
 const DEPTH = 10
 const pathElements: string[] = []
 const pathIndices: string[] = []
@@ -103,13 +79,10 @@ for (let d = 0; d < DEPTH; d++) {
 }
 const merkleRoot = level[0]
 
-// Tree: disc 8, next_index u32, current_root_index u32, filled_subtrees[10], zeros[10], roots[32].
 const treeData = await accountData(deploy.tree)
 const rootsOffset = 8 + 4 + 4 + 32 * 10 + 32 * 10
 const roots = Array.from({ length: 32 }, (_, k) => fromBE(treeData.subarray(rootsOffset + 32 * k, rootsOffset + 32 * (k + 1))))
 if (!roots.includes(merkleRoot)) throw new Error('rebuilt root is not in the on-chain root history')
-
-// ─── Envelope ───────────────────────────────────────────────
 
 const question =
 	args.question ??
@@ -125,8 +98,6 @@ const ciphertext = nacl.box(
 	client.secretKey,
 )
 const binding = computeRequestBinding(requestId, ciphertext)
-
-// ─── Proof ──────────────────────────────────────────────────
 
 const nullifierHash = H(BigInt(note.nk), i)
 const input = {
@@ -151,22 +122,21 @@ if (stage.root !== toBE32(merkleRoot).toString('hex') || stage.requestBinding !=
 	throw new Error('public signals do not match the request')
 }
 
-// ─── Output ─────────────────────────────────────────────────
-
 const id = bytesToHex(requestId)
 const dir = join(root, 'fixtures', 'requests', id)
 mkdirSync(dir, { recursive: true })
 const write = (name: string, v: unknown) => writeFileSync(join(dir, name), `${JSON.stringify(v, null, 2)}\n`)
 write('stage.json', stage)
 write('spend.json', { requestId: id, nullifierHash: stage.nullifierHash, requestBinding: stage.requestBinding, relayer: args.relayer })
-write('infer.json', {
+const infer = {
 	requestId: id,
 	ciphertext: bytesToBase64(ciphertext),
 	nonce: bytesToBase64(nonce),
 	clientPub: bytesToBase64(client.publicKey),
 	requestBinding: bytesToHex(binding),
-})
-// Browser-style body for the gateway's POST /api/ask (SPEC §7).
+}
+write('infer.json', infer)
+write('request.json', { ...infer, nullifierHash: stage.nullifierHash, relayer: args.relayer })
 write('ask.json', {
 	requestId: id,
 	ciphertext: bytesToBase64(ciphertext),

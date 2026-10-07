@@ -1,23 +1,16 @@
-// brizo-settle — normal handler, cron trigger.
-//
-// Writes BrizoReport::Settle { epoch } to brizo_pool.on_report. The program pays
-// the operator (spends - claimed_spends) * credit_price from the vault, so the
-// operator is only ever paid for spends whose proofs were verified on-chain.
-// The report is 9 bytes, well inside CRE's default Solana report limit.
 import { CronCapability, handler, Runner, type Runtime, solanaAccountMeta } from '@chainlink/cre-sdk'
 import { z } from 'zod'
-import { encodeSettleReport } from '../lib/brizo'
+import { encodeSettleReport } from '../lib/fluxo'
 import {
 	base58Address,
 	explorerTx,
 	forwarderAccounts,
 	forwarderConfigSchema,
 	MAX_COMPUTE_LIMIT,
-	writeBrizoReport,
+	writeFluxoReport,
 } from '../lib/solana'
 
 const configSchema = z.object({
-	// 6-field cron; SPEC §4.4: every 10 minutes.
 	schedule: z.string(),
 	epochSeconds: z.number().int().positive(),
 	solana: forwarderConfigSchema.extend({
@@ -34,8 +27,6 @@ const onSettle = (runtime: Runtime<Config>): string => {
 	const { solana, computeLimit, epochSeconds } = runtime.config
 	const epoch = BigInt(Math.floor(runtime.now().getTime() / 1000 / epochSeconds))
 
-	// on_report accounts: [state, forwarder_authority, pool (w)], then the Settle
-	// variant's remaining accounts in this exact order: vault (w), operator (w), token_program.
 	const accounts = forwarderAccounts(solana, [
 		solanaAccountMeta(solana.pool, true),
 		solanaAccountMeta(solana.vault, true),
@@ -44,7 +35,7 @@ const onSettle = (runtime: Runtime<Config>): string => {
 	])
 
 	runtime.log(`settle epoch=${epoch}`)
-	const result = writeBrizoReport(runtime, solana, encodeSettleReport(epoch), accounts, computeLimit)
+	const result = writeFluxoReport(runtime, solana, encodeSettleReport(epoch), accounts, computeLimit)
 
 	if (result.txStatus === 'SUCCESS' && 'txSignature' in result) {
 		runtime.log(`settle epoch=${epoch}: SUCCESS tx=${result.txSignature} explorer=${explorerTx(result.txSignature)}`)

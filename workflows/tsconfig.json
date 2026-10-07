@@ -11,6 +11,6 @@
     "noEmit": true,
     "types": []
   },
-  "include": ["lib/**/*.ts", "brizo-*/**/*.ts"],
+  "include": ["lib/**/*.ts", "fluxo-*/**/*.ts"],
   "exclude": ["lib/**/*.test.ts"]
 }

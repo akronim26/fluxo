@@ -1,16 +1,7 @@
-// Builds a brizo-infer HTTP payload the way the browser will (SPEC §7, HANDOFF-A D2):
-// a fresh client key pair, the envelope {question, bands} sealed to the enclave
-// public key, and requestBinding = BE(sha256(requestId ‖ ciphertext) mod r).
-//
-// Writes fixtures/infer.json (the payload) and fixtures/.infer-client.json (the
-// client's one-time test secret key, gitignored) so scripts/mock-mailbox.ts can
-// decrypt the answer.
-//
-// Usage (from workflows/): bun run scripts/make-infer-fixture.ts ["question"]
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import nacl from 'tweetnacl'
-import { bytesToBase64, bytesToHex, computeRequestBinding } from '../lib/brizo'
+import { bytesToBase64, bytesToHex, computeRequestBinding } from '../lib/fluxo'
 
 const root = join(import.meta.dir, '..')
 const { enclaveBoxPublicKey } = JSON.parse(readFileSync(join(root, 'enclave-public-key.json'), 'utf8'))

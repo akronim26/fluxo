@@ -1,17 +1,7 @@
-// Shared Brizo encodings used by every workflow. Pure JS only: this code runs in
-// QuickJS/WASM inside CRE (no Buffer, no crypto.subtle, no atob/btoa).
-//
-// Contracts implemented here are pinned in docs/HANDOFF-A.md (D1–D3):
-//   - BrizoReport Borsh layout: 65-byte Spend finalize (D6), Settle
-//   - requestBinding = BE(sha256(requestIdBytes ‖ ciphertextBytes) mod r) (D2)
-//   - answer nonce = sha256(requestIdBytes ‖ clientPub ‖ "answer")[0..24] (D3)
 import { sha256 } from '@noble/hashes/sha256'
 import { z } from 'zod'
 
-// BN254 scalar field modulus.
 export const BN254_R = 21888242871839275222246405745257275088548364400416034343698204186575808495617n
-
-// ─── Bytes ──────────────────────────────────────────────────
 
 export const hexToBytes = (hex: string): Uint8Array => {
 	const h = hex.startsWith('0x') ? hex.slice(2) : hex
@@ -98,17 +88,11 @@ export const bigIntToBytes32BE = (n: bigint): Uint8Array => {
 
 const utf8 = (s: string) => new TextEncoder().encode(s)
 
-// ─── Binding and nonce ──────────────────────────────────────
-
-/** D2: requestBinding as 32 bytes big-endian. */
 export const computeRequestBinding = (requestId: Uint8Array, ciphertext: Uint8Array): Uint8Array =>
 	bigIntToBytes32BE(bytesToBigIntBE(sha256(concatBytes(requestId, ciphertext))) % BN254_R)
 
-/** D3: deterministic answer nonce (the enclave has no randomness source). */
 export const answerNonce = (requestId: Uint8Array, clientPub: Uint8Array): Uint8Array =>
 	sha256(concatBytes(requestId, clientPub, utf8('answer'))).slice(0, 24)
-
-// ─── Validation helpers ─────────────────────────────────────
 
 export const hexOfBytes = (n: number) =>
 	z
@@ -128,12 +112,9 @@ export const base64OfBytes = (n?: number) =>
 		}
 	})
 
-/** A 32-byte big-endian value that must be a canonical BN254 field element. */
 export const fieldElementHex = hexOfBytes(32).refine((b) => bytesToBigIntBE(b) < BN254_R, {
 	message: 'not a canonical BN254 field element',
 })
-
-// ─── BrizoReport (Borsh enum) ───────────────────────────────
 
 export const SPEND_VARIANT = 0
 export const SETTLE_VARIANT = 1
@@ -142,22 +123,12 @@ const expectLen = (name: string, b: Uint8Array, n: number) => {
 	if (b.length !== n) throw new Error(`${name} must be ${n} bytes, got ${b.length}`)
 }
 
-/**
- * D6 finalize report. The Groth16 proof was already verified on-chain by
- * brizo_pool.stage_spend; the CRE report names the staged nullifier and the
- * request binding, which the program checks against the staged spend (so a
- * staged payment can't be paired with a different request).
- * Borsh: u8 variant 0, nullifier_hash [u8; 32], request_binding [u8; 32] — 65 bytes;
- * the signed report (≈109 B metadata + 36 B forwarder header + payload = 210 B)
- * stays under CRE's default 265-byte Solana report limit.
- */
 export const encodeSpendReport = (nullifierHash: Uint8Array, requestBinding: Uint8Array): Uint8Array => {
 	expectLen('nullifierHash', nullifierHash, 32)
 	expectLen('requestBinding', requestBinding, 32)
 	return concatBytes(new Uint8Array([SPEND_VARIANT]), nullifierHash, requestBinding)
 }
 
-/** Borsh: u8 variant 1, then epoch as u64 little-endian. */
 export const encodeSettleReport = (epoch: bigint): Uint8Array => {
 	if (epoch < 0n || epoch >= 1n << 64n) throw new Error('epoch out of u64 range')
 	const out = new Uint8Array(9)

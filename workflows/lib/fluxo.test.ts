@@ -11,7 +11,7 @@ import {
 	encodeSettleReport,
 	encodeSpendReport,
 	hexToBytes,
-} from './brizo'
+} from './fluxo'
 
 describe('base64', () => {
 	test('matches Buffer for every length 0..64', () => {
@@ -43,7 +43,7 @@ describe('nonce (D3)', () => {
 	})
 })
 
-describe('BrizoReport (D6)', () => {
+describe('FluxoReport (D6)', () => {
 	test('Spend (D6 finalize) is 65 bytes: variant 0, nullifier hash, request binding', () => {
 		const r = encodeSpendReport(new Uint8Array(32).fill(7), new Uint8Array(32).fill(9))
 		expect(r.length).toBe(65)
