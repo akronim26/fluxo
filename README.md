@@ -27,9 +27,9 @@ A normal AI request exposes you in three places: the text you write, the payment
 
 ### 1. On-Device Scrubbing
 
-- Runs entirely in the browser, with local model on the user's machine.
+- Runs entirely in the browser, with a local model (Ollama, `qwen3:8b`) on the user's machine.
 - Layer 1: the local model rewrites the question and removes the user's writing style.
-- Layer 2: rules generalise structured details (into bands) and act as a leak check on known profile values.
+- Layer 2: rules replace emails, dates, phone numbers and known profile values, and turn an exact age into a decade.
 
 ### 2. Zero-Knowledge Credits
 
@@ -73,7 +73,7 @@ Full addresses are in [`deploy/devnet.json`](deploy/devnet.json). The IDL is in 
 - Solana CLI 2.3.0
 - Anchor 0.31.0, plus `nightly-2025-04-15` for the IDL
 - circom 2.2.3 and snarkjs 0.7.6 (circuits only)
-- A local model
+- Ollama with `qwen3:8b` (optional; without it the app runs the rules only)
 
 ### Installation
 
@@ -106,6 +106,8 @@ Each folder has a `.env.example`. Copy it to `.env` and fill it in. Nothing secr
 
 ### Running the App
 
+Run each in its own terminal, from the repo root:
+
 ```bash
 # Gateway: public API on :8788, private mailbox on :8787
 cd gateway && bun run src/server.ts
@@ -116,10 +118,21 @@ cd frontend && npm run dev
 
 ### CRE Simulations
 
-Run from `workflows/`:
+Run from `workflows/`. A paid question takes three steps: build the request, stage it on Solana, then run the workflow.
 
 ```bash
-# One paid question: TEE answer + Solana spend finalize (after the relayer's stage_spend)
+# Fresh pool only: deposit the test note (secret 123, nk 456) that make-request expects at leaf 0
+cd ../scripts && node --env-file=.env --import tsx deposit.ts && cd ../workflows
+
+# 1. Build a request from on-chain state, the way the browser does
+#    (writes stage.json, request.json and ask.json to fixtures/requests/<id>/)
+node --env-file=.env --import tsx scripts/make-request.ts --i <unused credit index> --relayer <relayer pubkey>
+
+# 2. Stage it: stage_spend verifies the Groth16 proof on-chain
+cd .. && RELAYER_KEYPAIR=<path> node --env-file-if-exists=workflows/.env \
+  gateway/scripts/stage-spend.mjs workflows/fixtures/requests/<id>/stage.json deploy/devnet.json && cd workflows
+
+# 3. Run it: TEE answer + spend finalized on Solana
 cre workflow simulate ./fluxo-request --target simulation-settings --non-interactive --trigger-index 0 \
   --http-payload ./fixtures/requests/<id>/request.json --broadcast --wasm "$PWD/build/fluxo-request.wasm"
 
@@ -131,20 +144,6 @@ cre workflow simulate ./fluxo-settle --target simulation-settings --non-interact
 ./scripts/settle-loop.sh
 ```
 
-To build a real request from on-chain state, the way the browser does:
-
-```bash
-# Fresh pool only: deposit the test note (secret 123, nk 456) that make-request expects at leaf 0
-cd ../scripts && node --env-file=.env --import tsx deposit.ts && cd ../workflows
-
-# Writes stage.json, request.json and ask.json to fixtures/requests/<id>/
-npx tsx scripts/make-request.ts --i <credit index> --relayer <relayer pubkey>
-
-# Stage it with the gateway's relayer script (run from the repo root)
-cd .. && RELAYER_KEYPAIR=<path> node --env-file-if-exists=workflows/.env \
-  gateway/scripts/stage-spend.mjs workflows/fixtures/requests/<id>/stage.json deploy/devnet.json
-```
-
 ### Solana Program
 
 Run from `programs/`:
@@ -154,10 +153,12 @@ NO_DNA=1 anchor build --no-idl
 cd programs/fluxo_pool && RUSTUP_TOOLCHAIN=nightly-2025-04-15 NO_DNA=1 \
   anchor idl build -o ../../target/idl/fluxo_pool.json -t ../../target/types/fluxo_pool.ts && cd ../..
 
-# 17 localnet tests, including on-chain Groth16 and the forwarder CPI
+# 17 localnet tests, including on-chain Groth16 and the forwarder CPI.
+# Needs the program keypair for HU1m… at target/deploy/fluxo_pool-keypair.json
 NO_DNA=1 anchor test --skip-build
 
-# Deploy and initialise (mint, vault, large accounts, pool → deploy/devnet.json)
+# Deploy and initialise (mint, vault, large accounts, pool → deploy/devnet.json).
+# Upgrading the live program needs its upgrade authority, the admin key in deploy/devnet.json
 NO_DNA=1 anchor deploy --provider.cluster devnet -p fluxo_pool
 cd ../scripts && node --env-file=.env --import tsx init-devnet.ts
 ```
