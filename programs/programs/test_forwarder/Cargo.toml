@@ -1,0 +1,16 @@
+[package]
+name = "test-forwarder"
+version = "0.1.0"
+description = "Localnet stand-in for the CRE keystone forwarder: CPIs a report into a receiver, signing as its forwarder_authority PDA"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "test_forwarder"
+
+[features]
+no-entrypoint = []
+idl-build = []
+
+[dependencies]
+solana-program = "=2.1.21"
