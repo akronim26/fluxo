@@ -1,4 +1,4 @@
-# Brizo
+# Fluxo
 
 > Ask an AI about the things you'd never put your name on.
 
@@ -8,13 +8,11 @@ Asking an AI model something gives you away in three ways:
 - how you pay for it
 - who can read the request on its way to the model
 
-Brizo closes all three:
+Fluxo closes all three:
 
-- Your question is scrubbed on your device. Your raw personal data stays in the browser.
-- You pay with zero-knowledge credits on Solana. A credit can't be traced back to your deposit.
-- The model is called from inside a Chainlink CRE Confidential Workflow. Only the enclave sees the question and the API key.
-
-We built it at TOKEN2049 Origins (7 Oct 2026) for two tracks: Chainlink's "Best workflow with CRE" and Solana's "Best Use of Solana".
+- Your question is scrubbed on your device and raw personal data stays in the browser.
+- You pay with zero-knowledge credits on Solana.
+- The model is called from inside a Chainlink CRE Workflow.
 
 ## Features
 
