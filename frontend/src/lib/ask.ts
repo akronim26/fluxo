@@ -25,7 +25,7 @@ export async function prove(input: Record<string, unknown>, config: PublicConfig
 export async function askPrivately(config: PublicConfig, selected: CreditNote, question: string, status: (message: string) => void, onReserved: () => void) {
   if (!config.ready.spend) throw new Error('Private requests are not configured yet.');
   if (!navigator.locks) throw new Error('This browser cannot safely reserve a credit. Use a current browser on HTTPS or localhost.');
-  return navigator.locks.request(`brizo:spend:${selected.pool}`, { ifAvailable: true }, async lock => {
+  return navigator.locks.request(`fluxo:spend:${selected.pool}`, { ifAvailable: true }, async lock => {
     if (!lock) throw new Error('Another tab is using your credits. Wait for that request to finish.');
     const note = readNotes(selected.pool).find(n => n.commitment === selected.commitment);
     if (!note || note.nextI >= 200 || note.leafIndex === null) throw new Error('Add or refresh your credits first.');
@@ -39,7 +39,7 @@ export async function askPrivately(config: PublicConfig, selected: CreditNote, q
       status('Creating a zero-knowledge proof in your browser…');
       const proof = await prove({ ...path, secret: note.secret, nk: note.nk, i: note.nextI, nullifierHash, requestBinding: sealed.binding }, config);
       if (proof.publicSignals.join(',') !== [path.root, nullifierHash, sealed.binding].join(',')) throw new Error('The proof outputs did not match this request.');
-      reserveCredit(note); onReserved(); // Never reuse a credit after an uncertain broadcast.
+      reserveCredit(note); onReserved();
       status('Verifying your credit and waiting for the confidential workflow…');
       const { secretKey: _secret, binding: _binding, ...envelope } = sealed;
       let spendTx: string | undefined;

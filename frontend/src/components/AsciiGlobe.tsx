@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 
 const glyphs = ['·', '┐', '░', '│', '─', '┘', '+', '▪'];
-// Sphere geometry stays fixed; each frame only applies a rotation.
 const points = Array.from({ length: 34 }, (_, row) => {
   const lat = row + 1, phi = Math.PI * lat / 35;
   const ring = Math.sin(phi), y = Math.cos(phi), count = Math.round(90 * ring);
@@ -11,7 +10,6 @@ const points = Array.from({ length: 34 }, (_, row) => {
   });
 }).flat();
 
-/** Decorative, deterministic ASCII sphere; pauses off screen and in hidden tabs. */
 export function AsciiGlobe({ small = false }: { small?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -47,7 +45,6 @@ export function AsciiGlobe({ small = false }: { small?: boolean }) {
         const z = point.x * sin + point.z * cos;
         const tiltY = point.y * .94 - z * .34, tiltZ = point.y * .34 + z * .94;
         if (tiltZ <= -.3) continue;
-        // Fade through the silhouette instead of popping glyphs in and out.
         const edge = Math.min(1, (tiltZ + .3) / .2);
         context.globalAlpha = (.09 + Math.max(0, tiltZ) * .28) * edge * edge * (3 - 2 * edge);
         context.drawImage(atlas, point.glyph * cell, 0, cell, cell,
@@ -59,7 +56,6 @@ export function AsciiGlobe({ small = false }: { small?: boolean }) {
     const draw = (time: number) => {
       frame = 0;
       if (!canAnimate()) { previous = 0; return; }
-      // Time-based speed is consistent on both 60 Hz and 120 Hz displays.
       if (previous) angle = (angle + Math.min(time - previous, 64) * .000045) % (Math.PI * 2);
       previous = time;
       paint();

@@ -3,15 +3,12 @@ export const emptyProfile: Profile = { name: '', age: '', city: '', privateTerms
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export type PrivacyReview = { text: string; removed: string[]; flagged: string[]; mode: 'rules' | 'ollama' };
 
-/** Conservative local redaction. Unclassified words/numbers require explicit review. */
 export function scrub(question: string, profile: Profile): PrivacyReview {
   let text = question;
   const removed: string[] = [];
   const replace = (expression: RegExp, replacement: string, label: string) => {
     if (expression.test(text)) { text = text.replace(expression, replacement); removed.push(label); }
   };
-  // Strip structured identifiers first: replacing a name inside an email can
-  // otherwise break the email pattern and leave its identifying domain behind.
   replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email removed]', 'Email address');
   replace(/\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/g, '[date removed]', 'Exact date');
   replace(/(?:\+?\d[\d ().-]{7,}\d)/g, '[number removed]', 'Phone or identifying number');
@@ -45,7 +42,6 @@ export function personaliseAnswer(raw: string, profile: Profile): { general: str
     for (const b of Array.isArray(data.branches) ? data.branches : []) {
       const when = b?.when;
       if (!when || typeof b.advice !== 'string') continue;
-      // Only the fields actually collected by this UI may influence a branch.
       const actual = when.field === 'age' && profile.age !== '' ? Number(profile.age) : when.field === 'city' ? profile.city : undefined;
       if (actual === undefined || actual === '') continue;
       const numeric = typeof actual === 'number' && typeof when.value === 'number';

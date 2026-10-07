@@ -8,7 +8,7 @@ import { PublicKey, Keypair, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 import AxeBuilder from '@axe-core/playwright';
 import deployment from '../../../deploy/devnet.json' with { type: 'json' };
-import idl from '../../../deploy/idl/brizo_pool.json' with { type: 'json' };
+import idl from '../../../deploy/idl/fluxo_pool.json' with { type: 'json' };
 
 const project = resolve(import.meta.dirname,'../../..');
 const vectors = JSON.parse(readFileSync(resolve(project,'circuits/build/poseidon-vectors.json'),'utf8'));
@@ -27,11 +27,11 @@ async function mockLeaves(page: Page, commitment=BigInt(vectors.commitment), dep
 
 test('reference layout, section interactions, mobile menu and no horizontal overflow', async ({page})=>{
   const errors:string[]=[]; page.on('pageerror',e=>errors.push(e.message));
-  await page.goto('/'); await expect(page).toHaveTitle(/Brizo/);
+  await page.goto('/'); await expect(page).toHaveTitle(/Fluxo/);
   await expect(page.getByRole('heading',{level:1})).toContainText('The freedom');
   await page.getByRole('button',{name:/Ask. Review what you share/}).click(); await expect(page.getByText('personal details → removed')).toBeVisible();
   await page.getByRole('tab',{name:'Answer',exact:true}).click(); await expect(page.getByRole('tabpanel')).toContainText('GET /api/answer/');
-  await page.getByText('Is Brizo completely anonymous?',{exact:true}).click(); await expect(page.getByText(/A small pool of depositors weakens/)).toBeVisible();
+  await page.getByText('Is Fluxo completely anonymous?',{exact:true}).click(); await expect(page.getByText(/A small pool of depositors weakens/)).toBeVisible();
   for (const width of [320,390,768,1024,1440]) {
     await page.setViewportSize({width,height:1000}); await page.goto('/');
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
@@ -61,7 +61,7 @@ test('gateway failure stays usable, preview is local, and wallet dialog handles 
 
 test('real browser proof + encryption sends only approved text and decrypts a sealed answer', async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await configure(page);await mockLeaves(page);
-  await page.addInitScript(({note})=>localStorage.setItem(`brizo:notes:v1:${note.pool}`,JSON.stringify([note])),{note});
+  await page.addInitScript(({note})=>localStorage.setItem(`fluxo:notes:v1:${note.pool}`,JSON.stringify([note])),{note});
   for(const name of names)await page.route(`**/circuits/${name}`,r=>r.fulfill({body:readFileSync(resolve(project,'circuits/build',name)),contentType:name.endsWith('.json')?'application/json':'application/octet-stream'}));
   let body:Record<string,any>|undefined, sealedAnswer:Record<string,string>|undefined;
   await page.route('**/api/ask',async route=>{
@@ -91,7 +91,7 @@ test('real browser proof + encryption sends only approved text and decrypts a se
 });
 
 test('editing invalidates approval and a bad proving asset never reserves a credit',async({page})=>{
-  await configure(page);await mockLeaves(page);await page.addInitScript(({note})=>localStorage.setItem(`brizo:notes:v1:${note.pool}`,JSON.stringify([note])),{note});
+  await configure(page);await mockLeaves(page);await page.addInitScript(({note})=>localStorage.setItem(`fluxo:notes:v1:${note.pool}`,JSON.stringify([note])),{note});
   await page.route('**/circuits/*',r=>r.fulfill({body:'tampered'}));
   let posts=0;await page.route('**/api/ask',r=>{posts++;return r.abort();});
   await page.goto('/#app');await page.getByRole('button',{name:'Try a sample'}).click();await page.getByRole('button',{name:'Preview privacy'}).click();await page.getByRole('checkbox',{name:/I have reviewed/}).check();
@@ -149,7 +149,7 @@ test('Wallet Standard connection, faucet, simulated deposit, confirmation and en
   await page.getByRole('button',{name:'Deposit 10 tUSDC'}).click();await expect(page.locator('.credit-balance')).toContainText('200',{timeout:20_000});expect(sent).toBe(1);
   await expect(page.getByRole('link',{name:'View transaction'})).toHaveAttribute('href',`https://explorer.solana.com/tx/${signature}?cluster=devnet`);
   await page.getByRole('button',{name:'Backup / restore'}).click();await page.getByLabel('Backup password').fill('correct horse battery');
-  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Export notes'}).click();expect((await download).suggestedFilename()).toBe('brizo-encrypted-credits.json');
+  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Export notes'}).click();expect((await download).suggestedFilename()).toBe('fluxo-encrypted-credits.json');
   await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).not.toBeVisible();
 });
 

@@ -1,5 +1,3 @@
-// Existing deployed IDL uses the repository's web3.js 1.98 transaction format.
-// Keep legacy classes inside this boundary; UI signing uses Wallet Standard.
 import { Buffer } from 'buffer';
 import bs58 from 'bs58';
 import { Connection, PublicKey, TransactionMessage, VersionedTransaction, TransactionInstruction, ComputeBudgetProgram } from '@solana/web3.js';
@@ -9,13 +7,13 @@ import { poseidon2 } from 'poseidon-lite/poseidon2';
 import type { PublicConfig } from './api';
 import { FIELD, fromHex, hex } from './crypto';
 import { saveNote, type CreditNote } from './notes';
-import idl from '../../../deploy/idl/brizo_pool.json';
+import idl from '../../../deploy/idl/fluxo_pool.json';
 
 const tokenProgram = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const associatedProgram = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 export function connection(config: PublicConfig) { return new Connection(import.meta.env.VITE_SOLANA_RPC_URL || config.rpcUrl, 'confirmed'); }
 function requireDeployment(config: PublicConfig) {
-  if (!config.pool || !config.leaves || !config.tree || !config.vault || !config.mint || config.programId !== idl.address || config.tokenProgram !== tokenProgram) throw new Error('The gateway is not configured for this deployed Brizo program.');
+  if (!config.pool || !config.leaves || !config.tree || !config.vault || !config.mint || config.programId !== idl.address || config.tokenProgram !== tokenProgram) throw new Error('The gateway is not configured for this deployed Fluxo program.');
   return { pool: config.pool, leaves: config.leaves, tree: config.tree, vault: config.vault, mint: config.mint, programId: config.programId };
 }
 export function decodeLeaves(data: Uint8Array): bigint[] {
@@ -71,18 +69,24 @@ export async function deposit(config: PublicConfig, note: CreditNote, account: W
   status('Checking the deposit on Solana devnet…');
   const simulation = await rpc.simulateTransaction(transaction, { sigVerify: false });
   if (simulation.value.err) throw new Error('The deposit simulation failed. Check that your wallet has 10 tUSDC and devnet SOL for fees.');
-  saveNote(note); // Save the recovery note before any signing or broadcast.
-  status('Simulation passed. Confirm 10 tUSDC to the Brizo pool in your wallet.');
+  saveNote(note);
+  status('Simulation passed. Confirm 10 tUSDC to the Fluxo pool in your wallet.');
   const [signed] = await signer.signTransaction({ account, chain: 'solana:devnet', transaction: transaction.serialize() });
   if (!signed) throw new Error('The wallet did not return a signed transaction.');
   const signedTx = VersionedTransaction.deserialize(signed.signedTransaction);
   if (!signedTx.message.serialize().every((value, i) => value === transaction.message.serialize()[i]) || signedTx.message.serialize().length !== transaction.message.serialize().length) throw new Error('The wallet changed the deposit transaction.');
   const expectedSignature = bs58.encode(signedTx.signatures[0]);
-  saveNote({ ...note, depositTx: expectedSignature }); // Recover even if broadcast times out.
+  saveNote({ ...note, depositTx: expectedSignature });
   const signature = await rpc.sendRawTransaction(signed.signedTransaction, { skipPreflight: false, maxRetries: 2 });
   const submitted = saveNote({ ...note, depositTx: signature });
   status('Deposit submitted. Waiting for confirmation…');
-  const result = await rpc.confirmTransaction({ ...latest, signature }, 'confirmed');
-  if (result.value.err) throw new Error('The deposit was not confirmed. Your recovery note was kept; refresh it before depositing again.');
+  for (let expired = false; ;) {
+    const status = (await rpc.getSignatureStatuses([signature])).value[0];
+    if (status?.err) throw new Error('The deposit was not confirmed. Your recovery note was kept; refresh it before depositing again.');
+    if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') break;
+    if (expired) throw new Error('The deposit was not confirmed in time. Your recovery note was kept; refresh it before depositing again.');
+    expired = await rpc.getBlockHeight('confirmed') > latest.lastValidBlockHeight;
+    if (!expired) await new Promise(resolve => setTimeout(resolve, 1000));
+  }
   return syncNote(config, submitted);
 }

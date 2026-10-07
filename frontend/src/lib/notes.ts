@@ -10,7 +10,7 @@ export const noteSchema = z.object({
   depositTx: z.string().optional(),
 }).refine(n => poseidon2([BigInt(n.secret), BigInt(n.nk)]).toString() === n.commitment, 'Invalid credit note');
 export type CreditNote = z.infer<typeof noteSchema>;
-const key = (pool: string) => `brizo:notes:v1:${pool}`;
+const key = (pool: string) => `fluxo:notes:v1:${pool}`;
 export function newNote(pool: string): CreditNote {
   const secret = randomField(), nk = randomField();
   return { version: 1, pool, secret, nk, commitment: poseidon2([BigInt(secret), BigInt(nk)]).toString(), nextI: 0, leafIndex: null };
@@ -23,7 +23,6 @@ export function readNotes(pool: string): CreditNote[] {
 export function saveNote(note: CreditNote) {
   const valid = noteSchema.parse(note);
   const notes = readNotes(valid.pool), previous = notes.find(n => n.commitment === valid.commitment);
-  // Restoring an older backup must never roll back a locally reserved credit.
   const merged = { ...valid, nextI: Math.max(valid.nextI, previous?.nextI ?? 0), leafIndex: valid.leafIndex ?? previous?.leafIndex ?? null, depositTx: valid.depositTx ?? previous?.depositTx };
   localStorage.setItem(key(valid.pool), JSON.stringify([...notes.filter(n => n.commitment !== valid.commitment), merged]));
   return merged;
@@ -41,11 +40,11 @@ async function backupKey(password: string, salt: Uint8Array) {
 export async function exportNotes(notes: CreditNote[], password: string) {
   const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
   const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await backupKey(password, salt), new TextEncoder().encode(JSON.stringify(notes)));
-  return JSON.stringify({ format: 'brizo-backup-v1', salt: base64(salt), iv: base64(iv), ciphertext: base64(new Uint8Array(encrypted)) });
+  return JSON.stringify({ format: 'fluxo-backup-v1', salt: base64(salt), iv: base64(iv), ciphertext: base64(new Uint8Array(encrypted)) });
 }
 export async function importNotes(text: string, password: string, pool: string) {
   if (text.length > 1_000_000) throw new Error('The backup file is too large.');
-  const data = z.object({ format: z.literal('brizo-backup-v1'), salt: z.string(), iv: z.string(), ciphertext: z.string() }).parse(JSON.parse(text));
+  const data = z.object({ format: z.literal('fluxo-backup-v1'), salt: z.string(), iv: z.string(), ciphertext: z.string() }).parse(JSON.parse(text));
   const salt = fromBase64(data.salt), iv = fromBase64(data.iv);
   if (salt.length !== 16 || iv.length !== 12) throw new Error('Invalid backup.');
   let plain: ArrayBuffer;
@@ -53,7 +52,6 @@ export async function importNotes(text: string, password: string, pool: string) 
   catch { throw new Error('Could not open the backup. Check the password and file.'); }
   const notes = z.array(noteSchema).max(1024).parse(JSON.parse(new TextDecoder().decode(plain)));
   if (notes.some(n => n.pool !== pool)) throw new Error('This backup belongs to a different credit pool.');
-  // Validate the entire backup before changing storage.
   for (const note of notes) saveNote(note);
   return readNotes(pool);
 }

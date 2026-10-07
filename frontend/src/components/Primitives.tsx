@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { ArrowUpRight, ArrowRight } from 'lucide-react';
 
-export const REPO = 'https://github.com/akronim26/brizo';
-export function Logo() { return <a href="#" className="brand" aria-label="Brizo home">brizo<span>™</span></a>; }
+export const REPO = 'https://github.com/akronim26/fluxo';
+export function Logo() { return <a href="#" className="brand" aria-label="Fluxo home">fluxo<span>™</span></a>; }
 export function Eyebrow({ children }: { children: ReactNode }) { return <div className="eyebrow"><span />{children}</div>; }
 export function LaunchLink({ children = 'Start asking', secondary = false }: { children?: ReactNode; secondary?: boolean }) {
   return <a className={`button ${secondary ? 'button-light' : 'button-dark'}`} href="#app">{children}<ArrowRight size={17} /></a>;

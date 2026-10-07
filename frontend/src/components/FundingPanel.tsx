@@ -29,7 +29,6 @@ export function FundingPanel({ config, notes, reload, locked, setLocked }: { con
   }
   async function addCredits() {
     if (!config?.pool || !wallet.account || !wallet.wallet) return;
-    // Recover any prior uncertain deposit before generating a new note.
     await refresh();
     const current = readNotes(config.pool);
     const pending = current.find(n => n.leafIndex === null);
@@ -44,12 +43,12 @@ export function FundingPanel({ config, notes, reload, locked, setLocked }: { con
     <button className="button button-light full-width" disabled={unavailable || !wallet.account || !config?.ready.faucet} onClick={() => run(fund)}>Get free test tokens<ArrowUpRight size={15} /></button>
     {!config?.ready.faucet && <p className="helper-text">{config ? 'The faucet is not configured on this gateway.' : 'Connect the gateway to access the faucet.'}</p>}
     <button className="button button-dark full-width" disabled={unavailable || !wallet.account || !config?.pool} onClick={() => run(addCredits)}>Deposit 10 tUSDC<ArrowUpRight size={15} /></button>
-    <p className="helper-text">Solana devnet only. Your wallet pays the network fee and asks you to approve the deposit to the Brizo pool.</p>
+    <p className="helper-text">Solana devnet only. Your wallet pays the network fee and asks you to approve the deposit to the Fluxo pool.</p>
     {notes.some(n => n.leafIndex === null) && <p className="inline-notice">A deposit note is waiting for confirmation. Refresh credits to recover it.</p>}
     <div className="note-actions"><button disabled={unavailable || !config?.pool} onClick={() => run(refresh)}><RefreshCw size={13} />Refresh credits</button><button disabled={unavailable || !config?.pool} onClick={() => setBackup(true)}><Download size={13} />Backup / restore</button></div>
     {busy && <div className="progress-line" aria-hidden="true" />}{status && <p className="status-message" role="status">{status}</p>}{error && <p className="error-message" role="alert">{error}</p>}{tx && <ExternalLink href={explorer(tx)}>View transaction</ExternalLink>}
     <div className="local-note"><LockIcon /><p>Credit notes stay in this browser. Export a backup before clearing site data.</p></div>
-    <dialog ref={picker} className="wallet-dialog" aria-labelledby="wallet-title"><div className="panel-heading"><h2 id="wallet-title">Connect your wallet</h2><button className="icon-button" aria-label="Close wallet picker" onClick={() => picker.current?.close()}><X size={20} /></button></div><p>Choose a Solana wallet. Brizo uses devnet test tokens.</p>{wallet.wallets.length ? <div className="wallet-options">{wallet.wallets.map(w => <button key={w.name} disabled={unavailable} onClick={() => run(() => wallet.connect(w))}><img src={w.icon} alt="" width="28" height="28" />{w.name}<ArrowUpRight size={16} /></button>)}</div> : <div className="wallet-empty"><Wallet size={32} strokeWidth={1} /><h3>No Solana wallet detected</h3><p>Open Brizo in a browser with a Wallet Standard compatible Solana wallet, such as Phantom or Solflare. You can explore the privacy preview without one.</p><ExternalLink href="https://phantom.com/download">Get Phantom</ExternalLink></div>}{error && <p className="error-message" role="alert">{error}</p>}</dialog>
+    <dialog ref={picker} className="wallet-dialog" aria-labelledby="wallet-title"><div className="panel-heading"><h2 id="wallet-title">Connect your wallet</h2><button className="icon-button" aria-label="Close wallet picker" onClick={() => picker.current?.close()}><X size={20} /></button></div><p>Choose a Solana wallet. Fluxo uses devnet test tokens.</p>{wallet.wallets.length ? <div className="wallet-options">{wallet.wallets.map(w => <button key={w.name} disabled={unavailable} onClick={() => run(() => wallet.connect(w))}><img src={w.icon} alt="" width="28" height="28" />{w.name}<ArrowUpRight size={16} /></button>)}</div> : <div className="wallet-empty"><Wallet size={32} strokeWidth={1} /><h3>No Solana wallet detected</h3><p>Open Fluxo in a browser with a Wallet Standard compatible Solana wallet, such as Phantom or Solflare. You can explore the privacy preview without one.</p><ExternalLink href="https://phantom.com/download">Get Phantom</ExternalLink></div>}{error && <p className="error-message" role="alert">{error}</p>}</dialog>
     {backup && config?.pool && <BackupDialog notes={notes} pool={config.pool} onClose={() => setBackup(false)} onRestored={reload} />}
   </aside>;
 }
