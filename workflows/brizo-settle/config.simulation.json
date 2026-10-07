@@ -1,0 +1,15 @@
+{
+  "schedule": "0 */10 * * * *",
+  "epochSeconds": 600,
+  "solana": {
+    "chainSelectorName": "solana-devnet",
+    "receiverProgramId": "HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC",
+    "forwarderState": "5Tipz3yhTBdVsDbaBxZkrp7Gjf3brGq5SKkxReefPMP7",
+    "forwarderProgramId": "7kuEAA3mSC1Tz8gQjnvH7bKFda9xSPRRin9SZbH49cNK",
+    "pool": "E4VujnAbw8qugcpogcSCaXVHC2r8qoAzeoAoDrnomNPT",
+    "vault": "62hvjRCm6X9Y2b5YbziDDJUjCp3bM5cta1nDg6CbKJ6S",
+    "operator": "Edk22EeXTJ1RaP5kTGTs4QsejjSZ2tE692PwJfPDMCi1",
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+  },
+  "computeLimit": 300000
+}
