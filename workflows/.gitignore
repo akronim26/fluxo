@@ -4,6 +4,5 @@
 node_modules/
 .cre_build_tmp.js
 *.wasm
-fixtures/.infer-client.json
-fixtures/requests/*/client.json
+fixtures/
 build/
