@@ -1,239 +1,217 @@
 # Brizo
 
-**Ask frontier AI models about private matters without identifying yourself.**
+> **Ask an AI about the things you'd never put your name on.**
 
-Every AI request normally identifies you three ways: **what you write**, **how you pay**, and **who can see the request on its way to the model**. Brizo closes all three:
+Every time you ask an AI model something, you give yourself away three ways. There's what you type, there's the card or wallet that paid for it, and there's whoever can read the request on its way to the model. Health worries, money trouble, a legal mess: these are exactly the questions people most want answered and least want tied back to them.
 
-| Leak | Brizo's fix |
-|---|---|
-| What you write | A two-layer scrubber on your device. A local model (Ollama) rewrites and splits the question in a neutral voice; deterministic rules then generalise structured fields and block sending if a known personal value survives. The model's branched answer is filled in with your real values in the browser. |
-| How you pay | Zero-knowledge credits on Solana. You deposit 10 tUSDC once for 200 credits. Each question spends one credit with a Groth16 proof that you own *some* unspent deposit, plus a one-time nullifier. The Solana program verifies every proof on-chain. |
-| Who sees the request in transit | The scrubbed question is encrypted to a **Chainlink CRE Confidential Workflow**. The model is called from inside the enclave, with an API key that exists only there, and the answer is encrypted back to you. |
+Brizo is our attempt to close all three gaps at once.
 
-Built at TOKEN2049 Origins (7 Oct 2026) for the Chainlink **Best workflow with CRE** and Solana **Best Use of Solana** tracks.
+- **Your words** get scrubbed on your own device before anything is sent. Your raw personal data never leaves the browser, and your real details are filled back into the answer locally.
+- **Your payment** is a zero-knowledge credit on Solana. You deposit once, then each question spends a credit that can't be linked back to your deposit.
+- **The request** is sealed to a Chainlink CRE Confidential Workflow. The model is called from inside a secure enclave with an API key nobody else can see, and the answer comes back sealed to you.
 
----
+We built it in one day at TOKEN2049 Origins (7 Oct 2026) for Chainlink's **Best workflow with CRE** and Solana's **Best Use of Solana** tracks.
 
-## Architecture
+## Key Features
 
-```
-Browser app (frontend/)
-  1  faucet ───────────────► gateway /api/faucet            (mints test tUSDC)
-  2  deposit(commitment) ──► Solana brizo_pool.deposit      (user signs)
-  3  scrub locally (Ollama + rules), show the privacy diff
-  4  prove a credit (snarkjs), seal {question, bands} to the enclave key
-  5  POST /api/ask ────────► gateway (gateway/)
-                              a. verify the proof off-chain (cheap pre-check)
-                              b. relayer tx: brizo_pool.stage_spend
-                                   Groth16 verified ON-CHAIN, PendingSpend recorded
-                              c. CRE brizo-request (handlerInTee, one simulation)
-                                   ┌ in the enclave: check binding, open envelope,
-                                   │ call the model (Vault secret), seal the answer
-                                   ├ usingTheDons(): only the sealed answer crosses back
-                                   ├ SolanaClient.writeReport(Spend{nullifier, binding})
-                                   │   → keystone forwarder → brizo_pool.on_report:
-                                   │     binding must match the staged spend, nullifier
-                                   │     burned (reuse rejected), spend counted
-                                   └ only if the spend landed: POST the sealed answer
-                                     to the gateway mailbox
-  6  GET /api/answer/:id ──► sealed answer → decrypted in the browser, branches filled
+- **Scrubbing on your device**: a local model (Ollama, `qwen3:8b`) rewrites your question in a neutral voice and splits it into generic parts. A second, rule-based pass generalises structured details into broader bands, and refuses to send at all if a personal value you saved still slips through.
+- **A privacy diff you can read**: before anything goes out, you see exactly what you typed next to exactly what will be sent.
+- **Credits nobody can trace**: deposit 10 tUSDC, get 200 credits. Each question comes with a Groth16 proof that you own *some* unspent deposit, plus a one-time nullifier so the same credit can't be spent twice.
+- **Proofs checked on-chain**: the Solana program verifies every proof itself. Nobody, including us, can mint credits out of thin air; only real deposits go into the tree.
+- **The model call happens in an enclave**: the decrypted question, the model's answer and the API key only ever exist inside the CRE Confidential Workflow.
+- **Pay only for what got delivered**: the answer is released only after the spend lands on Solana, and the operator is paid only for spends that were actually finalized.
 
-CRE brizo-settle (cron) ─► writeReport(Settle) ─► vault pays the operator for finalized spends only
-```
+## How it works
+
+1. **Get test tokens.** The app hits our faucet and you receive tUSDC on devnet.
+2. **Deposit.** You sign one transaction that puts 10 tUSDC in the pool. A secret commitment goes into a Poseidon Merkle tree on-chain. This is the only step where your wallet shows up.
+3. **Ask.** Your question is scrubbed locally and you check the privacy diff.
+4. **Prove and seal.** The browser builds a zero-knowledge proof for one credit and seals the scrubbed question to the enclave's public key.
+5. **Stage the spend.** The gateway does a cheap off-chain check of the proof, then a relayer submits `stage_spend`. The Solana program verifies the proof on-chain and records a pending spend.
+6. **Answer inside the enclave.** The `brizo-request` workflow runs in CRE. Inside the enclave it opens your sealed question, calls the model and seals the answer. Only the sealed answer crosses back out.
+7. **Finalize on Solana.** The workflow writes a small report through the CRE forwarder. The program checks it matches the staged spend, burns the nullifier (a reused credit is rejected with `NullifierUsed`) and counts the spend.
+8. **Read the answer.** Only if the spend landed does the sealed answer reach the gateway's mailbox. Your browser picks it up, decrypts it and fills your real details back in.
+
+Every ten minutes `brizo-settle` sends a settle report, and the vault pays the operator for the spends that were finalized.
 
 ## Who sees what
 
-| Observer | Sees | Does not see |
+| Who | What they can see | What they can't |
 |---|---|---|
-| Model provider (via OpenRouter) | A generic, scrubbed question from the enclave's API account | Your identity, raw data, wallet, IP |
-| Gateway (our server) | Your IP, ciphertext, the ZK proof, timing | Plaintext question or answer, which deposit paid |
-| CRE node operators | Workflow code, triggers, chain writes, the nullifier and binding, the *sealed* answer | Decrypted question, model answer, API key |
-| Our team | Same as the gateway. We generated the enclave box key and hold it as a CRE secret, so we *could* decrypt intercepted scrubbed questions. | Raw data, which never leaves your device |
-| Anyone reading Solana | Deposits (wallet + amount), nullifiers, settlement amounts | Which deposit paid for which question |
+| The model provider (via OpenRouter) | A generic, scrubbed question from the enclave's account | You, your raw data, your wallet, your IP |
+| Our gateway | Your IP, ciphertext, the proof, timing | Your question or answer in plain text, which deposit paid |
+| CRE node operators | Workflow code, chain writes, the nullifier, the *sealed* answer | The decrypted question, the answer, the API key |
+| Us, the team | The same as the gateway. We also generated the enclave's key, so we *could* decrypt a scrubbed question if we intercepted it | Your raw data, which never leaves your device |
+| Anyone watching Solana | Deposits (wallet and amount), nullifiers, payouts | Which deposit paid for which question |
 
----
+## Solana and CRE, side by side
 
-## How CRE and Solana divide the work
+**Solana holds the money and enforces the rules.** The `brizo_pool` program (Anchor 0.31) has three jobs:
 
-**Solana (`programs/brizo_pool`, Anchor 0.31)** holds the money and enforces every rule:
-- **`deposit`:** exactly 10 tUSDC into the vault; the commitment goes into a depth-10 Poseidon Merkle tree (the `sol_poseidon` syscall), with a 32-root history.
-- **`stage_spend`:** verifies the Groth16 credit proof on-chain (`groth16-solana`, compressed points, ~120k CU) against a recent root and an unspent nullifier, then records a `PendingSpend` PDA.
-- **`on_report`**, callable only through the CRE keystone forwarder (the `verify_forwarder_cpi` check from the CRE template):
-  - `Spend { nullifier_hash, request_binding }` (65 B): the binding must equal the staged one; burns the nullifier (`NullifierUsed` on reuse), counts the spend, refunds the relayer's rent.
-  - `Settle { epoch }`: pays the operator `(spends − claimed) × 0.05 tUSDC` from the vault.
+- `deposit` takes exactly 10 tUSDC and adds your commitment to a depth-10 Poseidon tree, using the `sol_poseidon` syscall and keeping the last 32 roots.
+- `stage_spend` verifies the Groth16 proof on-chain with `groth16-solana` (compressed points, around 120k compute units) against a recent root and an unused nullifier, then records a `PendingSpend`.
+- `on_report` can only be called through the CRE keystone forwarder. A `Spend` report (65 bytes) must match the staged spend; it burns the nullifier and counts the spend. A `Settle` report pays the operator 0.05 tUSDC for every spend not yet paid out.
 
-Even a misbehaving forwarder can't create a spend, because the proof is verified on-chain.
+Because the proof is checked on-chain, even a misbehaving forwarder can't invent a spend.
 
-**CRE (`workflows/`, TypeScript, `@chainlink/cre-sdk` 1.23.0)** is the orchestration and confidentiality layer:
+**CRE handles the confidential part and ties everything together.** The workflows are TypeScript on `@chainlink/cre-sdk` 1.23.0:
 
-| Workflow | Trigger | Role |
+| Workflow | Trigger | What it does |
 |---|---|---|
-| `brizo-request` | HTTP, **`handlerInTee`** | Main path. In the enclave: binding check, `nacl.box.open`, model call through `HTTPClient` + `TeeRuntime` with the `MODEL_API_KEY` Vault secret, `nacl.box` seal. Crosses back with `usingTheDons()` carrying only the sealed ciphertext, finalizes the spend with `SolanaClient.writeReport`, and posts the answer only if payment landed. |
-| `brizo-spend` | HTTP | Spend finalize alone (two-step path) |
-| `brizo-infer` | HTTP, `handlerInTee` | Confidential answer alone (two-step path) |
-| `brizo-settle` | Cron `0 */10 * * * *` | Settle report → operator payout |
+| `brizo-request` | HTTP, in the enclave (`handlerInTee`) | The main path: opens the question, calls the model with the `MODEL_API_KEY` secret, seals the answer, finalizes the spend with `SolanaClient.writeReport`, and only then delivers the answer |
+| `brizo-spend` | HTTP | Finalizes a spend on its own (two-step path) |
+| `brizo-infer` | HTTP, in the enclave | Produces the sealed answer on its own (two-step path) |
+| `brizo-settle` | Cron, every 10 minutes | Pays the operator for finalized spends |
 
-The Spend report was designed to fit CRE's **default** Solana limits: 265 B signed report and 300k CU. That's why the proof is verified in `stage_spend` and the CRE report only finalizes.
-
----
+We split it this way on purpose. CRE's default Solana limits are a 265-byte report and 300k compute units, so the heavy proof check lives in `stage_spend` and the CRE report just finalizes.
 
 ## Deployed on Solana devnet
 
-| Item | Address |
-|---|---|
-| Program `brizo_pool` | [`HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC`](https://explorer.solana.com/address/HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC?cluster=devnet) |
-| Pool PDA (CRE simulator mock forwarder) | `E4VujnAbw8qugcpogcSCaXVHC2r8qoAzeoAoDrnomNPT` |
-| tUSDC mint (6 decimals, ours) | `7NfRf2AgUw3yRMSuj9EXsEJNC5nSr8RmqtrXKxv6hVFJ` |
-| Tree PDA / Leaves / NullifierSet | `J4uUU49D…` / `EfSCPTpc…` / `EMqup2tD…` |
-| Vault / Operator token accounts | `62hvjRCm…` / `Edk22EeX…` |
+- **Program `brizo_pool`**: [`HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC`](https://explorer.solana.com/address/HU1m8PzF8icY7FF1psP3VLDmxm9JZbCpAkByLxF3jpYC?cluster=devnet)
+- **Pool PDA** (CRE simulator forwarder): `E4VujnAbw8qugcpogcSCaXVHC2r8qoAzeoAoDrnomNPT`
+- **tUSDC mint** (our own test token, 6 decimals): `7NfRf2AgUw3yRMSuj9EXsEJNC5nSr8RmqtrXKxv6hVFJ`
 
-Everything is in [`deploy/devnet.json`](deploy/devnet.json); the IDL is in [`deploy/idl/brizo_pool.json`](deploy/idl/brizo_pool.json).
+The rest of the accounts are in [`deploy/devnet.json`](deploy/devnet.json), and the IDL is in [`deploy/idl/brizo_pool.json`](deploy/idl/brizo_pool.json).
 
-### Example transactions (devnet)
+### Transactions you can click
 
-| Type | Transaction |
-|---|---|
-| Program deploy | [`3WfQPHLX…`](https://explorer.solana.com/tx/3WfQPHLXX38eyV3qcubzJeSTUgNtRQ51Frag1LcnDzh4pqpBNEMGYJnTxnaymizCaU6FtBEXihyAi5rdGJip9fEf?cluster=devnet) |
-| Pool initialise | [`5vHcT85R…`](https://explorer.solana.com/tx/5vHcT85RhE1cg1ZbdRvii2Kge3UVJEqD8Tb57bK74MzEnQxF1Q9M9o83fqxoJ1uyv37A4Z6XeZV1zy56XXanx78D?cluster=devnet) |
-| Deposit | [`2W72FdqW…`](https://explorer.solana.com/tx/2W72FdqWyjvh6edud6HHDgV9N3xz2pb7sBCHdAhPX3BdmjByfqQKL682QfDQTrwPqC1duXbsEi3PpTDRuWWZtFay?cluster=devnet) |
-| Stage spend (Groth16 verified on-chain) | [`33dQtAxL…`](https://explorer.solana.com/tx/33dQtAxLJRKtMv6MACydfKTUvMfTKePeZdn2gjWmJ7HkUe2tLUUexCWfuTxZKJuzVeLQ2C3HPDBwtvzKAdWujjCy?cluster=devnet) |
-| Spend finalized by CRE (`brizo-spend`) | [`34LDToSM…`](https://explorer.solana.com/tx/34LDToSMPhcYfboPdaetufAcPteHGR3AHigPCHUgJZRFpxrAa2991D31X1p28JksgaPu8f1z19jyqpksCBCsmDR6?cluster=devnet) |
-| Full question through the gateway (`brizo-request`: TEE answer + spend) | [`5tUUkGvm…`](https://explorer.solana.com/tx/5tUUkGvmce4YJYNedvZx5Qv2yhQWcxPNtcqzTkfriUu7ZYnd5EYf5QcPJpRNo6VF7Wbc3nz9pu6XsFDa7tB3e9ux?cluster=devnet) |
-| Reused credit | Rejected with `NullifierUsed` at both stage and finalize (output in [`docs/EVIDENCE.md`](docs/EVIDENCE.md)) |
-| Settle (operator paid) | [`56y25StB…`](https://explorer.solana.com/tx/56y25StBajhcbQRA2MxoGFY6Ayg2rzJLCg9kcpmg9Ga9FaGT1Bbspatzh7bkvgfdr64oLbLHEyTk5Usm42HqwxPR?cluster=devnet), [`3BP1wnes…`](https://explorer.solana.com/tx/3BP1wnesu38p2JRuYhqidTDHaNTBAar4fjBh297E2jznjfcVnxMKLPMhycdpT6z5mdZCmiWPbo1NfLTHkVemcNKa?cluster=devnet) |
+- Program deploy: [`3WfQPHLX…`](https://explorer.solana.com/tx/3WfQPHLXX38eyV3qcubzJeSTUgNtRQ51Frag1LcnDzh4pqpBNEMGYJnTxnaymizCaU6FtBEXihyAi5rdGJip9fEf?cluster=devnet)
+- Pool initialise: [`5vHcT85R…`](https://explorer.solana.com/tx/5vHcT85RhE1cg1ZbdRvii2Kge3UVJEqD8Tb57bK74MzEnQxF1Q9M9o83fqxoJ1uyv37A4Z6XeZV1zy56XXanx78D?cluster=devnet)
+- Deposit: [`2W72FdqW…`](https://explorer.solana.com/tx/2W72FdqWyjvh6edud6HHDgV9N3xz2pb7sBCHdAhPX3BdmjByfqQKL682QfDQTrwPqC1duXbsEi3PpTDRuWWZtFay?cluster=devnet)
+- Stage spend, proof verified on-chain: [`33dQtAxL…`](https://explorer.solana.com/tx/33dQtAxLJRKtMv6MACydfKTUvMfTKePeZdn2gjWmJ7HkUe2tLUUexCWfuTxZKJuzVeLQ2C3HPDBwtvzKAdWujjCy?cluster=devnet)
+- Spend finalized by CRE (`brizo-spend`): [`34LDToSM…`](https://explorer.solana.com/tx/34LDToSMPhcYfboPdaetufAcPteHGR3AHigPCHUgJZRFpxrAa2991D31X1p28JksgaPu8f1z19jyqpksCBCsmDR6?cluster=devnet)
+- A full question through the gateway (`brizo-request`, enclave answer plus spend): [`5tUUkGvm…`](https://explorer.solana.com/tx/5tUUkGvmce4YJYNedvZx5Qv2yhQWcxPNtcqzTkfriUu7ZYnd5EYf5QcPJpRNo6VF7Wbc3nz9pu6XsFDa7tB3e9ux?cluster=devnet)
+- Reused credit: rejected with `NullifierUsed` at both stage and finalize (output in [`docs/EVIDENCE.md`](docs/EVIDENCE.md))
+- Settle, operator paid: [`56y25StB…`](https://explorer.solana.com/tx/56y25StBajhcbQRA2MxoGFY6Ayg2rzJLCg9kcpmg9Ga9FaGT1Bbspatzh7bkvgfdr64oLbLHEyTk5Usm42HqwxPR?cluster=devnet), [`3BP1wnes…`](https://explorer.solana.com/tx/3BP1wnesu38p2JRuYhqidTDHaNTBAar4fjBh297E2jznjfcVnxMKLPMhycdpT6z5mdZCmiWPbo1NfLTHkVemcNKa?cluster=devnet)
 
-Every simulation command, its output and each signature are logged in [`docs/EVIDENCE.md`](docs/EVIDENCE.md).
+Every simulation we ran, with its output and signature, is logged in [`docs/EVIDENCE.md`](docs/EVIDENCE.md).
 
----
+## Quick Start
 
-## Setup
+### What you'll need
 
-### Prerequisites
+- CRE CLI v1.37.0 (run `cre login` first)
+- Bun 1.2.21 or newer. Older versions make every TypeScript workflow fail with `wasm unreachable`.
+- Node 23
+- Solana CLI 2.3.0
+- Anchor 0.31.0, plus the `nightly-2025-04-15` toolchain for building the IDL
+- circom 2.2.3 and snarkjs 0.7.6, only if you want to rebuild the circuit
+- Ollama with `qwen3:8b`, for the local scrubber
 
-- **CRE CLI** v1.37.0 (`cre login`)
-- **Bun ≥ 1.2.21.** Older Bun makes every TS workflow fail with `wasm unreachable`.
-- **Node 23**
-- **Solana CLI 2.3.0**
-- **Anchor 0.31.0** + `nightly-2025-04-15` (for the IDL only)
-- circom 2.2.3 / snarkjs 0.7.6 (circuits only)
-- Ollama with `qwen3:8b` for the local scrubber
+### Secrets
 
-### Secrets and environment (never committed)
+Nothing secret is committed. Each folder has a `.env.example`; copy it to `.env` and fill it in.
 
-Each directory has a `.env.example`; copy it to `.env` and fill in:
-
-- **`workflows/.env`**
-  - `CRE_SOLANA_PRIVATE_KEY`: path to a funded devnet keypair; pays simulation broadcast fees.
-  - `CRE_ETH_PRIVATE_KEY`: the placeholder from `.env.example` (required by the CLI).
-  - `SECRET_MODEL_API_KEY`: OpenRouter key.
-  - `SECRET_ENCLAVE_BOX_SK`: written by `bun run scripts/gen-enclave-key.ts`, which prints only the public key into `workflows/enclave-public-key.json`.
-  - `SOLANA_DEVNET_RPC_URL`: a **private devnet** RPC. The public endpoint returns 429 under normal load.
-- **`gateway/.env`**: keypair paths for the faucet mint authority and the `stage_spend` relayer (see `gateway/.env.example`).
-- **`scripts/.env`**: admin and faucet keypair paths for deployment.
+- `workflows/.env` needs a funded devnet keypair path (`CRE_SOLANA_PRIVATE_KEY`), the placeholder `CRE_ETH_PRIVATE_KEY` from the example, your OpenRouter key (`SECRET_MODEL_API_KEY`), the enclave key (`SECRET_ENCLAVE_BOX_SK`, written by `bun run scripts/gen-enclave-key.ts`) and a private devnet RPC (`SOLANA_DEVNET_RPC_URL`). The public devnet RPC rate-limits you almost immediately.
+- `gateway/.env` needs keypair paths for the faucet and the relayer.
+- `scripts/.env` needs the admin and faucet keypair paths used for deployment.
 
 ### Install
 
 ```bash
-cd workflows && bun install && ./scripts/build-wasm.sh   # compiles all four workflows once
+git clone https://github.com/akronim26/fluxo.git
+cd fluxo
+
+cd workflows && bun install && ./scripts/build-wasm.sh   # builds all four workflows
 cd ../gateway && bun install
 cd ../frontend && npm install
 cd ../circuits && npm ci --ignore-scripts
 ```
 
-## Commands
-
-### CRE simulations (run from `workflows/`)
+### Run the app
 
 ```bash
-# one paid question: TEE answer + Solana spend finalize (after the relayer's stage_spend)
+cd gateway && bun run src/server.ts      # public API on :8788, private mailbox on :8787
+cd frontend && npm run dev               # open http://127.0.0.1:5173
+```
+
+### Run the CRE workflows (from `workflows/`)
+
+```bash
+# one paid question: enclave answer + spend finalized on Solana (after stage_spend)
 cre workflow simulate ./brizo-request --target simulation-settings --non-interactive --trigger-index 0 \
   --http-payload ./fixtures/requests/<id>/request.json --broadcast --wasm "$PWD/build/brizo-request.wasm"
 
-# spend finalize alone / confidential answer alone (two-step path)
-cre workflow simulate ./brizo-spend  --target simulation-settings --non-interactive --trigger-index 0 \
+# the two-step path: finalize the spend, then get the answer
+cre workflow simulate ./brizo-spend --target simulation-settings --non-interactive --trigger-index 0 \
   --http-payload ./fixtures/requests/<id>/spend.json --broadcast --wasm "$PWD/build/brizo-spend.wasm"
-cre workflow simulate ./brizo-infer  --target simulation-settings --non-interactive --trigger-index 0 \
+cre workflow simulate ./brizo-infer --target simulation-settings --non-interactive --trigger-index 0 \
   --http-payload ./fixtures/requests/<id>/infer.json --wasm "$PWD/build/brizo-infer.wasm"
 
-# settle: pay the operator for finalized spends
+# pay the operator for finalized spends
 cre workflow simulate ./brizo-settle --target simulation-settings --non-interactive --trigger-index 0 \
   --broadcast --wasm "$PWD/build/brizo-settle.wasm"
 
-# keep settling on the cron cadence (stands in for the DON scheduler in simulation)
+# keep settling every 10 minutes, standing in for the DON's scheduler
 ./scripts/settle-loop.sh
 ```
 
-To build a real request from on-chain state the way the browser does (rebuilt tree, sealed envelope, binding, Groth16 proof), run this from `workflows/`:
+Want a real request built from on-chain state, the same way the browser builds one? Run this from `workflows/`:
 
 ```bash
 npx tsx scripts/make-request.ts --i <credit index> --relayer <relayer pubkey>
 ```
 
-It writes `stage.json`, `spend.json`, `infer.json` and `ask.json` under `fixtures/requests/<id>/`. Stage it with:
+It writes `stage.json`, `spend.json`, `infer.json` and `ask.json` into `fixtures/requests/<id>/`. Stage it with:
 
 ```bash
 cd ../scripts && node --env-file=.env --import tsx stage-spend.ts ../workflows/fixtures/requests/<id>/stage.json
 ```
 
-### Solana program (run from `programs/`)
+### Build and test the Solana program (from `programs/`)
 
 ```bash
 NO_DNA=1 anchor build --no-idl
 cd programs/brizo_pool && RUSTUP_TOOLCHAIN=nightly-2025-04-15 NO_DNA=1 \
   anchor idl build -o ../../target/idl/brizo_pool.json -t ../../target/types/brizo_pool.ts && cd ../..
-NO_DNA=1 anchor test --skip-build          # 17 localnet tests, incl. on-chain Groth16 and the forwarder CPI
+NO_DNA=1 anchor test --skip-build          # 17 localnet tests, including on-chain Groth16 and the forwarder CPI
 NO_DNA=1 anchor deploy --provider.cluster devnet -p brizo_pool
-cd ../scripts && node --env-file=.env --import tsx init-devnet.ts   # mint, vault, large accounts, pool → deploy/devnet.json
+cd ../scripts && node --env-file=.env --import tsx init-devnet.ts   # mint, vault, accounts, pool → deploy/devnet.json
 ```
 
-### Gateway and app
+There's more detail in [`gateway/README.md`](gateway/README.md), [`frontend/README.md`](frontend/README.md) and [`circuits/README.md`](circuits/README.md).
 
-```bash
-cd gateway && bun run src/server.ts      # public API :8788, private mailbox :8787
-cd frontend && npm run dev               # http://127.0.0.1:5173
-```
+## What it doesn't do (yet)
 
-See [`gateway/README.md`](gateway/README.md), [`frontend/README.md`](frontend/README.md) and [`circuits/README.md`](circuits/README.md) for details.
+We'd rather you hear the weak spots from us.
 
----
+- **CRE runs in the simulator.** We didn't have deployment access during the hackathon, so every workflow runs through `cre workflow simulate` and writes to Solana via the simulator's forwarder. The Solana transactions themselves are real devnet transactions, and the reports fit CRE's default production limits, so deploying shouldn't need a protocol change.
+- **We hold the enclave key.** We generated it and stored it as a CRE secret, so in principle we could decrypt a scrubbed question we intercepted. Generating the key inside the enclave, with attestation, is next on the list.
+- **Privacy grows with the crowd.** Your payment hides among everyone who deposited. With only a handful of users, that's not much cover.
+- **Scrubbing is best effort.** The local model can miss things. The rules only guarantee that the personal values you saved don't leave your device. Without Ollama the app runs rules only, and your writing style does leave the device.
+- **The gateway sees your IP.** Use Tor Browser if that matters to you; the demo doesn't force it.
+- **Answers are short.** CRE gives the model call 10 seconds, so we cap answers at 600 tokens. If the model times out you get a sealed "model unavailable" note instead.
+- **The trusted setup is minimal**: the public Hermez Powers of Tau plus one local phase-2 contribution, not a public ceremony.
+- **Nothing is audited**: not the circuit, the program or the workflows. The program's upgrade authority is still the deployer key.
+- **The pool is small**: 1,024 deposits, 4,096 nullifiers, 32 remembered roots.
+- **tUSDC is our own devnet token**, not a real stablecoin.
 
-## Honest limits
+## Where we'd take it next
 
-- **CRE runs in the simulator.** Deployment access wasn't available to us during the hackathon, so every workflow runs with `cre workflow simulate`, and Solana writes go through CRE's simulator mock forwarder on devnet. **The Solana transactions are real devnet transactions.** The design fits CRE's default production limits (65-byte Spend report, about 13k CU finalize), so deploying it would need no protocol change.
-- **The enclave key is ours.** We generated the enclave's box key and hold it as a CRE secret, so we could decrypt intercepted scrubbed questions. Attested in-enclave key generation is on the roadmap.
-- **The anonymity set is everyone who deposited.** With few users, payment privacy is weak.
-- **Scrubbing is best-effort.** The local model can miss a detail, and the rules only guarantee that *known* profile values don't leave the device. In rules-only mode (no local model), your writing style still leaves the device.
-- **The gateway sees your IP.** Use Tor Browser for network privacy; the hosted demo doesn't enforce it.
-- **The model call has a 10-second budget** (CRE's HTTP action timeout), so answers are capped at 600 tokens. A timeout delivers a sealed "model unavailable" notice.
-- **Trusted setup:** the public Hermez Powers of Tau plus a **single local phase-2 contribution**, not a public ceremony.
-- **Unaudited** circuit, program and workflows. The program's upgrade authority is the deployer key.
-- **Capacity:** 1,024 deposits, 4,096 nullifiers, 32-root history.
-- **tUSDC is our own devnet test token**, not a real stablecoin.
+- Deploy the workflows to a real CRE DON with the real Solana forwarder, and run `brizo-request` as a deployed Confidential Workflow.
+- Generate the enclave key inside the enclave, so nobody (us included) ever holds it.
+- Let people redeem unused credits to a fresh address.
+- Privacy receipts in each settle report.
+- A proper multi-party trusted setup, and an audit.
+- Bigger and multiple trees, compressed nullifier accounts.
+- Hand the upgrade authority to a multisig, or freeze it.
+- An agent SDK with spending caps, x402 top-ups, and the gateway as a Tor onion service.
 
-## Roadmap
+## Built at TOKEN2049 Origins
 
-- Deploy the workflows to a CRE DON with the real Solana forwarder, and `brizo-request` with Confidential Workflows.
-- Attested in-enclave key generation, so nobody, including us, holds the box key.
-- Redeem unused credits to a fresh address (direct `redeem` instruction).
-- Privacy receipts: a salted per-epoch receipts root in `Settle`.
-- A public multi-party trusted-setup ceremony; an audit of the circuit, program and workflows.
-- Deeper trees, several trees, compressed nullifier accounts.
-- Upgrade authority moved to a multisig or frozen.
-- An agent SDK with spending caps; x402 top-ups; the gateway as a Tor onion service.
+All of the code was written during the hackathon on 7 Oct 2026.
 
----
+We started from two Chainlink templates: `cre-templates/building-blocks/solana-read-write/solana-read-write-ts` (forwarder CPI check, report encoding, simulator forwarder values) and `cre init -t hello-confidential-workflows-ts` (the `handlerInTee` structure).
 
-## Hackathon statement
+Libraries we leaned on:
 
-All code was written during TOKEN2049 Origins on 7 Oct 2026.
+- **CRE and Solana**: `@chainlink/cre-sdk`, `@solana/web3.js`, `@solana/codecs`, `zod`, `tweetnacl`, `@noble/hashes`, Anchor, `groth16-solana`, `solana-poseidon`
+- **Zero knowledge**: circom, circomlib, snarkjs, circomlibjs
+- **Gateway and app**: Hono, Vite and React
 
-**Templates used:**
-- Chainlink `cre-templates` `building-blocks/solana-read-write/solana-read-write-ts`: forwarder-CPI check, report encoding, simulator mock forwarder values.
-- `cre init -t hello-confidential-workflows-ts`: the `handlerInTee` structure.
+The model is `anthropic/claude-haiku-4.5` through OpenRouter, called from the enclave. The scrubber runs Ollama `qwen3:8b` on your own machine.
 
-**Libraries:**
-- CRE and Solana: `@chainlink/cre-sdk`, `@solana/web3.js`, `@solana/codecs`, `zod`, `tweetnacl`, `@noble/hashes`, Anchor, `groth16-solana`, `solana-poseidon`.
-- ZK: circom/circomlib, snarkjs, circomlibjs.
-- Gateway and app: Hono, Vite/React.
+### Team
 
-Models: OpenRouter (`anthropic/claude-haiku-4.5`) from the enclave, and Ollama `qwen3:8b` on the user's device.
+- [@0xr10t](https://github.com/0xr10t)
+- [@akronim26](https://github.com/akronim26)
