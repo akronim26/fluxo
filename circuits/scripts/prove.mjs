@@ -1,7 +1,6 @@
 import { buildPoseidon } from 'circomlibjs';
 import { groth16 } from 'snarkjs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
 import { proofToSolana, proofToSolanaCompressed, requestBinding, verifyingKeyRust } from '../lib/protocol.mjs';
 
 const poseidon = await buildPoseidon();
@@ -27,13 +26,9 @@ if (publicSignals.join(',') !== [input.root, input.nullifierHash, input.requestB
 const solana = proofToSolana(proof, publicSignals);
 const write = (name, value) => writeFile(`build/${name}`, JSON.stringify(value, null, 2) + '\n');
 await write('sample-proof.json', { synthetic: true, requestId, ciphertext, proof, publicSignals, solana });
-await write('proof.json', proof);
-await write('public.json', publicSignals);
 await write('sample-spend.json', { requestId, ...solana });
 await write('sample-spend-compressed.json', { requestId, ...proofToSolanaCompressed(proof, publicSignals) });
 await write('poseidon-vectors.json', { zeros, commitment: String(commitment), nullifierHash: input.nullifierHash, root: input.root, testInputs: { commitment: ['123', '456'], nullifier: ['456', '0'] } });
-await write('binding-vector.json', { requestId, ciphertext, requestBinding: input.requestBinding, sha256: createHash('sha256').update(Buffer.from(requestId, 'hex')).update(Buffer.from(ciphertext, 'base64')).digest('hex') });
-await writeFile('build/verifying_key.rs', verifyingKeyRust(vk));
-await write('s7-results.json', { curve: 'bn128', depth: 10, publicInputOrder: ['root', 'nullifierHash', 'requestBinding'], provingMs, underFiveSeconds: provingMs < 5000, verified: true, rustVerifierVersion: '0.2.0', setup: 'public Hermez power 12 + one local phase-2 contribution' });
+await writeFile('../programs/programs/fluxo_pool/src/vk.rs', verifyingKeyRust(vk));
 console.log(JSON.stringify({ provingMs, verified: true, underFiveSeconds: provingMs < 5000 }));
 process.exit(provingMs < 5000 ? 0 : 1);
