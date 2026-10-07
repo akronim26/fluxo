@@ -28,9 +28,9 @@ export async function isPrebuiltWasm(path: string): Promise<boolean> {
 }
 
 export function createCreRunner(options: { workflowsDir: string; runtimeDir: string; executable?: string; timeoutMs?: number }) {
-  return async (workflow: 'brizo-request', payload: Record<string, unknown>, onSpend?: (signature: string) => void) => {
+  return async (workflow: 'fluxo-request', payload: Record<string, unknown>, onSpend?: (signature: string) => void) => {
     if (typeof payload.requestId !== 'string' || !/^[0-9a-f]{32}$/.test(payload.requestId)) throw new GatewayError('invalid_request', 400);
-    const wasm = join(resolve(options.workflowsDir), 'build/brizo-request.wasm');
+    const wasm = join(resolve(options.workflowsDir), 'build/fluxo-request.wasm');
     if (!await isPrebuiltWasm(wasm)) throw new GatewayError('request_wasm_not_built', 503);
     const runtime = resolve(options.runtimeDir);
     await mkdir(runtime, { recursive: true, mode: 0o700 });
@@ -51,7 +51,6 @@ export function createCreRunner(options: { workflowsDir: string; runtimeDir: str
             const signature = line.match(payment)?.[1];
             if (!observed && isSignature(signature)) {
               observed = true;
-              // Public recovery metadata only; the final result still gates delivery.
               onSpend?.(signature);
             }
           }

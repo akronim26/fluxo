@@ -12,7 +12,7 @@ export type Dependencies = {
   db: Database;
   verifyProof: (proof: unknown, signals: string[]) => Promise<boolean>;
   stageSpend: (payload: StagePayload, requestId: string) => Promise<StageResult>;
-  runWorkflow: (workflow: 'brizo-request', payload: Record<string, unknown>, onSpend: (signature: string) => void) => Promise<Record<string, unknown>>;
+  runWorkflow: (workflow: 'fluxo-request', payload: Record<string, unknown>, onSpend: (signature: string) => void) => Promise<Record<string, unknown>>;
   fundOwner: (owner: string) => Promise<Record<string, unknown>>;
   publicConfig: Record<string, unknown>;
   now?: () => number;
@@ -31,7 +31,6 @@ export function recoverInterruptedRequests(db: Database, at: number) {
 }
 
 export function expireRequests(db: Database, at: number) {
-  // Active workflows have subprocess deadlines; don't discard a paid request.
   return db.query("UPDATE requests SET state = 'expired', ciphertext = NULL, nonce = NULL WHERE expires <= ? AND state IN ('queued', 'delivered', 'answered', 'failed')").run(at);
 }
 
@@ -128,7 +127,7 @@ export function createGateway(dependencies: Dependencies) {
         if (!isSignature(stage.tx)) throw new GatewayError('invalid_stage_result');
         try { if (new PublicKey(stage.relayer).toBase58() !== stage.relayer) throw new Error(); } catch { throw new GatewayError('invalid_stage_result'); }
         db.query("UPDATE requests SET state = 'requesting', stage_tx = ? WHERE id = ?").run(stage.tx, body.requestId);
-        const result = await dependencies.runWorkflow('brizo-request', { requestId: body.requestId, ciphertext: body.ciphertext, nonce: body.nonce, clientPub: body.clientPub, requestBinding: spend.requestBinding, nullifierHash: spend.nullifierHash, relayer: stage.relayer }, signature => {
+        const result = await dependencies.runWorkflow('fluxo-request', { requestId: body.requestId, ciphertext: body.ciphertext, nonce: body.nonce, clientPub: body.clientPub, requestBinding: spend.requestBinding, nullifierHash: spend.nullifierHash, relayer: stage.relayer }, signature => {
           if (isSignature(signature)) db.query("UPDATE requests SET spend_tx = ? WHERE id = ? AND state IN ('requesting', 'delivered')").run(signature, body.requestId);
         });
         if (result.requestId !== body.requestId || !['delivered', 'model_error', 'answered'].includes(String(result.status)) || !isSignature(result.spendTx)) throw new GatewayError('spend_refused');

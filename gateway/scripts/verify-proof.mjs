@@ -1,4 +1,3 @@
-// Receives only a public proof through stdin; never reads environment or signing files.
 import { readFileSync } from 'node:fs';
 import { groth16 } from '../../circuits/node_modules/snarkjs/main.js';
 try {

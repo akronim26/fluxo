@@ -6,7 +6,7 @@ import { createStager } from '../src/stage';
 import { publicDeployment } from '../src/config';
 import deployed from '../../deploy/devnet.json';
 import fixture from '../../circuits/build/sample-spend-compressed.json';
-import idl from '../../deploy/idl/brizo_pool.json';
+import idl from '../../deploy/idl/fluxo_pool.json';
 import { ComputeBudgetInstruction, PublicKey } from '@solana/web3.js';
 import { buildStageTransaction, assertDevnetRpc, confirmStageHttp, stageErrorCode } from '../scripts/stage-spend.mjs';
 import { SendTransactionError } from '@solana/web3.js';
@@ -31,7 +31,7 @@ test('D6 staging instruction matches the deployed IDL, compressed bytes and 400,
 });
 
 test('stage CLI consumes the workflow RPC env opaquely; adapter validates its result and cleans public proof files', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'brizo-stage-test-'));
+  const root = await mkdtemp(join(tmpdir(), 'fluxo-stage-test-'));
   try {
     const fake = join(root, 'node');
     await writeFile(fake, `#!/bin/sh\nexec "${process.execPath}" "${join(root, 'fake.mjs')}" "$@"\n`, { mode: 0o700 });
@@ -65,13 +65,13 @@ test('HTTP confirmation waits for confirmed status even when a processed transac
   expect(pauses).toBe(2);
 });
 
-test('HTTP confirmation rejects unknown expired transactions and names Brizo instruction errors', async () => {
+test('HTTP confirmation rejects unknown expired transactions and names Fluxo instruction errors', async () => {
   const connection = (status: unknown) => ({ getSignatureStatuses: async () => ({ value: [status] }), getBlockHeight: async () => 11 });
   await expect(confirmStageHttp(connection(null), signature, 10, idl)).rejects.toThrow('stage_expired');
   await expect(confirmStageHttp(connection({ err: { InstructionError: [1, { Custom: 6006 }] }, confirmationStatus: 'confirmed' }), signature, 10, idl)).rejects.toThrow('NullifierUsed');
 });
 
-test('only IDL errors on the Brizo instruction escape preflight diagnostics', () => {
+test('only IDL errors on the Fluxo instruction escape preflight diagnostics', () => {
   const error = new SendTransactionError({ action: 'simulate', signature: '', transactionMessage: 'Transaction simulation failed: Error processing Instruction 1: custom program error: 0x1776', logs: ['private diagnostic'] });
   expect(stageErrorCode(error, idl)).toBe('NullifierUsed');
   expect(stageErrorCode({ InstructionError: [0, { Custom: 6006 }] }, idl)).toBe('stage_refused');

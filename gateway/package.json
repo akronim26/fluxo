@@ -1,5 +1,5 @@
 {
-  "name": "@brizo/gateway",
+  "name": "@fluxo/gateway",
   "private": true,
   "type": "module",
   "scripts": {

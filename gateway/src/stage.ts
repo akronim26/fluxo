@@ -8,7 +8,7 @@ import { PublicKey } from '@solana/web3.js';
 import { isSignature } from './app';
 import { runCommand } from './process';
 import { GatewayError } from './errors';
-import idl from '../../deploy/idl/brizo_pool.json';
+import idl from '../../deploy/idl/fluxo_pool.json';
 const stageErrors = new Set([...idl.errors.map(entry => entry.name), 'stage_refused', 'stage_expired', 'stage_failed', 'devnet_required', 'relayer_not_configured']);
 export type StagePayload = ReturnType<typeof proofToSolanaCompressed>;
 export type StageResult = { relayer: string; pending: string; tx: string };

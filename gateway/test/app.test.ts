@@ -7,7 +7,7 @@ import { requestBinding } from '../../circuits/lib/protocol.mjs';
 import { GatewayError } from '../src/errors';
 
 const sample = JSON.parse(readFileSync(new URL('../../circuits/build/sample-proof.json', import.meta.url), 'utf8'));
-const signature = '3'.repeat(88); // Decodes to a 64-byte base58 test signature.
+const signature = '3'.repeat(88);
 const relayer = 'FPxLpgeTVcTXcFM2ugGH5Z7M3GJ39QVDuTCvrJMDAqBL';
 const staged = { relayer, tx: signature, pending: '11111111111111111111111111111111' };
 const request = (id = '0'.repeat(32)) => {
@@ -23,7 +23,7 @@ function setup(overrides: Partial<Dependencies> = {}) {
   let gateway: ReturnType<typeof createGateway>;
   const deps: Dependencies = { db, now: () => clock, publicConfig: { cluster: 'devnet', enclaveBoxPublicKey: 'public-only' }, verifyProof: async () => true, stageSpend: async () => staged, fundOwner: async owner => ({ owner, tokenTx: signature, solTx: signature }), runWorkflow: async (name, payload) => {
     calls.push(name);
-    expect(name).toBe('brizo-request');
+    expect(name).toBe('fluxo-request');
     const body = request(String(payload.requestId));
     const result = await post(gateway.mailboxApp, `/mailbox/${payload.requestId}`, { requestId: payload.requestId, ciphertext: Buffer.alloc(32, 3).toString('base64'), nonce: answerNonce(body) });
     expect(result.status).toBe(200);
@@ -45,7 +45,7 @@ test('combined refusal, missing or invalid spend signature, and mismatched ID ne
     const calls: string[] = [];
     const g = setup({ runWorkflow: async (name, payload) => { calls.push(name); return { requestId: payload.requestId, ...result }; } });
     expect((await post(g.publicApp, '/api/ask', request())).status).toBe(502);
-    expect(calls).toEqual(['brizo-request']);
+    expect(calls).toEqual(['fluxo-request']);
     const answer = await g.publicApp.request('/api/answer/' + '0'.repeat(32));
     expect(answer.status).toBe(502);
     expect(await answer.json()).not.toHaveProperty('ciphertext');
@@ -57,7 +57,7 @@ test('valid ask runs one combined workflow after staging and deletes the paid an
   const asked = await post(g.publicApp, '/api/ask', request());
   expect(asked.status).toBe(200);
   expect(await asked.json()).toEqual({ requestId: '0'.repeat(32), spendTx: signature });
-  expect(g.calls).toEqual(['brizo-request']);
+  expect(g.calls).toEqual(['fluxo-request']);
   const got = await g.publicApp.request('/api/answer/' + '0'.repeat(32));
   expect(got.status).toBe(200);
   expect((await got.json()).spendTx).toBe(signature);
@@ -82,7 +82,7 @@ test('queue serializes simultaneous asks and reserves duplicate IDs across recre
   const responses = await Promise.all([post(g.publicApp, '/api/ask', request('0'.repeat(32))), post(g.publicApp, '/api/ask', request('1'.repeat(32)))]);
   expect(responses.map(r => r.status)).toEqual([502, 502]);
   expect(maximum).toBe(1);
-  expect(calls).toEqual(['stage', 'brizo-request', 'stage', 'brizo-request']);
+  expect(calls).toEqual(['stage', 'fluxo-request', 'stage', 'fluxo-request']);
   const restored = setup({ db: g.db });
   expect((await post(restored.publicApp, '/api/ask', request('0'.repeat(32)))).status).toBe(409);
 });
@@ -114,19 +114,18 @@ test('D6/E15 stages compressed points then passes the exact bound envelope to on
     }, runWorkflow: async (name, payload) => {
     phases.push(name);
     const body = request();
-    expect(name).toBe('brizo-request');
+    expect(name).toBe('fluxo-request');
     expect(payload).toEqual({ requestId: body.requestId, ciphertext: body.ciphertext, nonce: body.nonce, clientPub: body.clientPub, requestBinding: BigInt(body.publicSignals[2]).toString(16).padStart(64, '0'), nullifierHash: BigInt(sample.publicSignals[1]).toString(16).padStart(64, '0'), relayer });
     expect(g.db.query('SELECT state,stage_tx FROM requests').get()).toEqual({ state: 'requesting', stage_tx: signature });
     expect(payload).not.toHaveProperty('mailboxUrl');
     const answer = { requestId: body.requestId, ciphertext: body.ciphertext, nonce: answerNonce(body) };
     expect((await post(g.mailboxApp, '/mailbox/' + body.requestId, { ...answer, nonce: body.nonce })).status).toBe(422);
     expect((await post(g.mailboxApp, '/mailbox/' + body.requestId, answer)).status).toBe(200);
-    // A client must not consume the callback before CRE confirms delivery.
     expect((await g.publicApp.request('/api/answer/' + body.requestId)).status).toBe(202);
     return { requestId: body.requestId, delivered: true, status: 'model_error', spendTx: signature };
   } });
   expect((await post(g.publicApp, '/api/ask', request())).status).toBe(200);
-  expect(phases).toEqual(['verify', 'stage', 'brizo-request']);
+  expect(phases).toEqual(['verify', 'stage', 'fluxo-request']);
   expect((await g.publicApp.request('/api/answer/' + '0'.repeat(32))).status).toBe(200);
 });
 
@@ -181,7 +180,7 @@ test('body and origin limits refuse requests, and missing deployment does not co
 test('a spent request can deliver after its queue deadline; answer lifetime starts at callback', async () => {
   let g: ReturnType<typeof setup>;
   g = setup({ runWorkflow: async (name, payload) => {
-    expect(name).toBe('brizo-request');
+    expect(name).toBe('fluxo-request');
     g.advance(15 * 60 * 1000 + 1);
     const body = request(String(payload.requestId));
     expect((await post(g.mailboxApp, '/mailbox/' + body.requestId, { requestId: body.requestId, ciphertext: body.ciphertext, nonce: answerNonce(body) })).status).toBe(200);

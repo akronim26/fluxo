@@ -13,7 +13,6 @@ import { createProofVerifier } from './verifier';
 import { GatewayError } from './errors';
 import { decodeBase64 } from '../../circuits/lib/protocol.mjs';
 
-// Bun loads a local .env at startup. Application code never opens it or logs env.
 const root = fileURLToPath(new URL('..', import.meta.url));
 const workflowsDir = resolve(process.env.WORKFLOWS_DIR ?? join(root, '../workflows'));
 const buildDir = resolve(root, '../circuits/build');
@@ -25,7 +24,7 @@ if (![publicPort, mailboxPort].every(port => Number.isInteger(port) && port > 10
 const readJson = async (path: string) => JSON.parse(await readFile(path, 'utf8'));
 const published = await readJson(join(workflowsDir, 'enclave-public-key.json'));
 decodeBase64(published.enclaveBoxPublicKey, 32);
-const requestConfig = await readJson(join(workflowsDir, 'brizo-request/config.simulation.json'));
+const requestConfig = await readJson(join(workflowsDir, 'fluxo-request/config.simulation.json'));
 const mailbox = new URL(requestConfig.mailboxBaseUrl);
 if (mailbox.protocol !== 'http:' || !['localhost', '127.0.0.1'].includes(mailbox.hostname) || Number(mailbox.port) !== mailboxPort || mailbox.pathname !== '/' || mailbox.username || mailbox.password || mailbox.search || mailbox.hash) throw new Error('mailbox_config_must_match_local_listener');
 const devnetPath = resolve(process.env.DEVNET_CONFIG_PATH ?? join(root, '../deploy/devnet.json'));
@@ -34,7 +33,7 @@ if (existsSync(devnetPath)) deployment = publicDeployment(await readJson(devnetP
 const relayerKeypairPath = process.env.RELAYER_KEYPAIR || process.env.RELAYER_KEYPAIR_PATH || undefined;
 let spendReady = false;
 if (deployment) {
-  spendReady = Boolean(relayerKeypairPath) && spendConfigurationMatches(deployment, requestConfig) && await isPrebuiltWasm(join(workflowsDir, 'build/brizo-request.wasm'));
+  spendReady = Boolean(relayerKeypairPath) && spendConfigurationMatches(deployment, requestConfig) && await isPrebuiltWasm(join(workflowsDir, 'build/fluxo-request.wasm'));
 }
 const assets = ['credit.wasm', 'credit_final.zkey', 'verification_key.json'];
 const hashes = Object.fromEntries(await Promise.all(assets.map(async name => [name, createHash('sha256').update(await readFile(join(buildDir, name))).digest('hex')])));

@@ -44,7 +44,7 @@ test('faucet rejects wrong mint decimals before any transaction and reuses an ex
 });
 
 test('isolated faucet runner loads the workflow RPC through CLI args and emits only validated public metadata', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'brizo-faucet-runner-'));
+  const root = await mkdtemp(join(tmpdir(), 'fluxo-faucet-runner-'));
   try {
     const executable = join(root, 'bun');
     const progress: unknown[] = [];
@@ -63,7 +63,7 @@ test('isolated faucet runner loads the workflow RPC through CLI args and emits o
 });
 
 test('Bun explicitly loads the synthetic RPC fixture while faucet removes unrelated credentials', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'brizo-faucet-env-'));
+  const root = await mkdtemp(join(tmpdir(), 'fluxo-faucet-env-'));
   try {
     const file = join(root, 'rpc.fixture');
     const script = join(root, 'check.ts');

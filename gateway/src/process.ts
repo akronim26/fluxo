@@ -18,7 +18,6 @@ export function runCommand(executable: string, args: string[], options: { cwd?: 
       try { options.onStdout?.(text); } catch { stop(new GatewayError('command_failed')); }
     };
     child.stdout.on('data', capture);
-    // Consume stderr without returning it: it may contain diagnostics with payloads.
     child.stderr.on('data', () => {});
     child.stdin.on('error', () => {});
     child.on('error', () => { clearTimeout(timer); reject(new GatewayError('command_unavailable', 503)); });

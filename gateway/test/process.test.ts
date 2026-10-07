@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { runCommand } from '../src/process';
 
 test('timing out an isolated worker also stops its non-detached signing-command child', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'brizo-process-tree-'));
+  const root = await mkdtemp(join(tmpdir(), 'fluxo-process-tree-'));
   let pid: number | undefined;
   try {
     const child = join(root, 'child.mjs'), worker = join(root, 'worker.ts');

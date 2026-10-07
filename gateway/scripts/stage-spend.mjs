@@ -1,14 +1,9 @@
-// Isolated signing CLI based on lane B's scripts/stage-spend.ts (D6).
-// Only this process consumes the locally provisioned signing file. It emits
-// public transaction metadata and never emits its environment or key contents.
 import anchor from '@coral-xyz/anchor';
 import { ComputeBudgetProgram, Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 export async function assertDevnetRpc(connection) {
-  // Solana's CAIP-2 devnet reference is the genesis-hash prefix:
-  // https://solana.com/docs/payments/agentic-payments/x402#solana-networks-and-assets
   if (!(await connection.getGenesisHash()).startsWith('EtWTRABZaYq6iMfeYKouRu166VU2xqa1')) throw new Error('devnet_required');
 }
 
@@ -19,8 +14,6 @@ export function stageErrorCode(error, idl) {
   let code;
   const instruction = error?.InstructionError;
   if (Array.isArray(instruction) && instruction[0] === 1) code = instruction[1]?.Custom;
-  // web3.js keeps preflight's structured error in this public getter. Return
-  // only an IDL name, never its diagnostic message, logs or RPC URL.
   const message = error?.transactionError?.message;
   if (typeof message === 'string') {
     const match = message.match(/Error processing Instruction 1: custom program error: (0x[0-9a-f]+|[0-9]+)/i);
@@ -34,8 +27,6 @@ export async function confirmStageHttp(connection, tx, lastValidBlockHeight, idl
     const { value: [status] } = await connection.getSignatureStatuses([tx], { searchTransactionHistory: true });
     if (status?.err) throw new Error(stageErrorCode(status.err, idl));
     if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') return;
-    // Expiration prevents a new landing; a transaction already processed may
-    // still reach confirmed after its blockhash has expired.
     if (!status && (await connection.getBlockHeight('confirmed')) > lastValidBlockHeight) throw new Error('stage_expired');
     await pause();
   }
@@ -62,8 +53,6 @@ export function buildStageTransaction(stage, deployment, relayer, idl) {
 }
 
 async function main() {
-  // Node's --env-file consumes the existing workflow RPC configuration without
-  // the gateway opening it. Drop unrelated credentials before any signing.
   const permitted = new Set(['PATH', 'HOME', 'RELAYER_KEYPAIR', 'SOLANA_DEVNET_RPC_URL', 'NO_DNA']);
   for (const name of Object.keys(process.env)) if (!permitted.has(name)) delete process.env[name];
   const [stagePath, deploymentPath] = process.argv.slice(2);
@@ -79,9 +68,6 @@ async function main() {
   const relayer = Keypair.fromSecretKey(signerBytes);
   try {
     const transaction = buildStageTransaction(stage, deployment, relayer.publicKey, idl);
-    // Send, then confirm by polling over HTTP: some devnet RPCs (e.g. Alchemy, ZAN) don't
-    // serve the websocket signature subscription sendAndConfirmTransaction waits on, so the
-    // tx lands but confirmation times out.
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = relayer.publicKey;
@@ -89,7 +75,6 @@ async function main() {
     const tx = await connection.sendRawTransaction(transaction.serialize(), { skipPreflight: false, preflightCommitment: 'confirmed', maxRetries: 5 });
     await confirmStageHttp(connection, tx, lastValidBlockHeight, idl);
     console.log(JSON.stringify({ staged: true, relayer: relayer.publicKey.toBase58(), pending: transaction.instructions[1].keys[4].pubkey.toBase58(), tx }));
-  // web3.js retains this array as the signing key: wipe it only after sending.
   } finally { signerBytes.fill(0); }
 }
 

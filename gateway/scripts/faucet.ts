@@ -1,5 +1,3 @@
-// Bun alone loads the workflow RPC environment. Only the Solana CLIs consume
-// signer files; this process emits validated public metadata and fixed errors.
 import { Connection } from '@solana/web3.js';
 import { createFaucet } from '../src/faucet';
 import { GatewayError } from '../src/errors';
@@ -20,8 +18,6 @@ async function main() {
   const connection = new Connection(options.rpcUrl, 'confirmed');
   await assertDevnetRpc(connection);
   const fund = createFaucet({ ...options, mint, connection,
-    // Inherit this worker's process group, so the outer deadline also stops a
-    // mint/transfer command before the gateway advances its serialized queue.
     execute: (executable, args) => runCommand(executable, args, { timeoutMs: 90_000, detached: false }),
     onSignature: (step, signature) => console.log(JSON.stringify({ event: 'faucet_transaction', step, signature })),
   });
