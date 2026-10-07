@@ -16,7 +16,7 @@ Bun.serve({
 		const body = (await req.json()) as { requestId: string; ciphertext: string; nonce: string }
 		console.log(`mailbox: received ${m[1]} (${body.ciphertext.length} base64 chars)`)
 
-		const clientPath = join(root, 'fixtures', '.infer-client.json')
+		const clientPath = join(root, 'fixtures', 'requests', m[1], 'client.json')
 		if (existsSync(clientPath)) {
 			const c = JSON.parse(readFileSync(clientPath, 'utf8'))
 			if (c.requestId === m[1]) {
