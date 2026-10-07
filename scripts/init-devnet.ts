@@ -4,6 +4,7 @@ import { createMint, getOrCreateAssociatedTokenAccount } from "@solana/spl-token
 import { Connection, Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { PollingConnection } from "./lib/connection.ts";
 
 const env = (k: string, d?: string) => {
   const v = process.env[k] ?? d;
@@ -33,7 +34,7 @@ const forwarderState = new PublicKey(env("FORWARDER_STATE", "5Tipz3yhTBdVsDbaBxZ
 
 const idlSrc = resolve(root, "programs/target/idl/fluxo_pool.json");
 const idl = JSON.parse(readFileSync(idlSrc, "utf8")) as Idl & { address: string };
-const conn = new Connection(rpcUrl, "confirmed");
+const conn = new PollingConnection(rpcUrl, "confirmed");
 const provider = new AnchorProvider(conn, new Wallet(admin), { commitment: "confirmed" });
 const program = new Program(idl, provider);
 const programId = program.programId;

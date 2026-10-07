@@ -4,6 +4,7 @@ import { getOrCreateAssociatedTokenAccount, mintTo } from "@solana/spl-token";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { PollingConnection } from "./lib/connection.ts";
 
 const root = resolve(import.meta.dirname, "..");
 const home = (p: string) => p.replace(/^~/, process.env.HOME!);
@@ -15,7 +16,7 @@ const commitment = BigInt(
   process.argv[2] ?? JSON.parse(readFileSync(resolve(root, "circuits/build/poseidon-vectors.json"), "utf8")).commitment
 );
 
-const conn = new Connection(process.env.RPC_URL || d.rpcUrl, "confirmed");
+const conn = new PollingConnection(process.env.RPC_URL || d.rpcUrl, "confirmed");
 const program = new Program(
   JSON.parse(readFileSync(resolve(root, d.idl), "utf8")) as Idl,
   new AnchorProvider(conn, new Wallet(admin), { commitment: "confirmed" })
