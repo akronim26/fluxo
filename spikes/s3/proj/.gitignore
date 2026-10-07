@@ -1,0 +1,9 @@
+*.env
+node_modules/
+dist/
+target/
+.cargo-home/
+.build-tmp/
+.env
+.cre_build_tmp.js
+*.wasm
