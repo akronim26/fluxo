@@ -14,7 +14,10 @@ export default defineConfig(({ mode }) => {
     } },
     // `vite preview` serves the production build on one origin for hosting through a
     // tunnel: /api and /circuits go to the gateway, so the app needs no gateway URL.
-    preview: { port: 4173, strictPort: true, allowedHosts: ['.trycloudflare.com'], proxy: {
+    // cors: false — Vite's own CORS only allows localhost origins, so it would answer the
+    // preflight for a separately hosted frontend (e.g. Render) with no Allow-Origin header.
+    // Disabled, preflights reach the gateway, which applies ALLOWED_ORIGINS itself.
+    preview: { port: 4173, strictPort: true, cors: false, allowedHosts: ['.trycloudflare.com'], proxy: {
       '/api': { target, changeOrigin: true, timeout: 300_000, proxyTimeout: 300_000 },
       '/circuits': { target, changeOrigin: true },
     } },

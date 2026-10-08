@@ -91,7 +91,7 @@ export function createGateway(dependencies: Dependencies) {
       if (origin && !origins.includes(origin)) return c.json({ error: 'origin_refused' }, 403);
       await next();
     });
-    publicApp.use('*', cors({ origin: origin => origins.includes(origin) ? origin : '', allowMethods: ['GET', 'POST', 'OPTIONS'], allowHeaders: ['Content-Type'] }));
+    publicApp.use('*', cors({ origin: origin => origins.includes(origin) ? origin : '', allowMethods: ['GET', 'POST', 'OPTIONS'], allowHeaders: ['Content-Type', 'solana-client'] })); // @solana/web3.js sends solana-client on RPC calls
   }
   publicApp.get('/api/config', c => c.json(dependencies.publicConfig));
   // Browser → Solana reads and the deposit send go through here, so the private RPC key
