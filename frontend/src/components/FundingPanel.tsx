@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Download, RefreshCw, Wallet, X } from 'lucide-react';
 import { api, explorer, type PublicConfig } from '../lib/api';
 import { newNote, readNotes, saveNote, type CreditNote } from '../lib/notes';
-import { deposit, getLeaves } from '../lib/solana';
+import { deposit, getLeaves, connection } from '../lib/solana';
 import { useWallet } from '../lib/useWallet';
 import { BackupDialog } from './BackupDialog';
 import { ExternalLink } from './Primitives';
@@ -32,8 +32,14 @@ export function FundingPanel({ config, notes, reload, locked, setLocked }: { con
     await refresh();
     const current = readNotes(config.pool);
     const pending = current.find(n => n.leafIndex === null);
-    if (pending?.depositTx) throw new Error('An earlier deposit is still unconfirmed. Check its transaction and refresh before depositing again.');
-    const note = pending ?? newNote(config.pool);
+    if (pending?.depositTx) {
+      // Only block if that deposit actually reached the chain and is still confirming.
+      // If it never landed (e.g. rejected before broadcast) or failed, its blockhash has
+      // expired, so the same note is reused for a fresh deposit.
+      const { value: [landed] } = await connection(config).getSignatureStatuses([pending.depositTx], { searchTransactionHistory: true });
+      if (landed && !landed.err) throw new Error('An earlier deposit is still confirming. Press Refresh credits in a few seconds.');
+    }
+    const note = pending ? { ...pending, depositTx: undefined } : newNote(config.pool);
     const result = await deposit(config, note, wallet.account, wallet.wallet.features['solana:signTransaction'], setStatus);
     if (result.depositTx) setTx(result.depositTx);
     setStatus('Deposit confirmed. Your 200 credits are ready. Back up your note.');
